@@ -1,7 +1,7 @@
 import React from 'react'
 import { View, TouchableOpacity } from 'react-native'
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated'
-import { COLORS } from '../../constants/theme'
+import { useTheme } from '../../contexts/theme'
 
 interface CameraControlsProps {
   onPress: () => void
@@ -9,6 +9,7 @@ interface CameraControlsProps {
 }
 
 export function CameraControls({ onPress, disabled }: CameraControlsProps) {
+  const { colors } = useTheme()
   const scale = useSharedValue(1)
   const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }))
 
@@ -24,7 +25,7 @@ export function CameraControls({ onPress, disabled }: CameraControlsProps) {
           height: 80,
           borderRadius: 40,
           borderWidth: 4,
-          borderColor: 'white',
+          borderColor: colors.text,
           justifyContent: 'center',
           alignItems: 'center',
           backgroundColor: 'transparent'
@@ -35,7 +36,7 @@ export function CameraControls({ onPress, disabled }: CameraControlsProps) {
             width: 68,
             height: 68,
             borderRadius: 34,
-            backgroundColor: disabled ? COLORS.border : 'white'
+            backgroundColor: disabled ? colors.border : colors.surface
           }}
         />
       </TouchableOpacity>

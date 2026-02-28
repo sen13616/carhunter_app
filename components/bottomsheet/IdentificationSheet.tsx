@@ -1,10 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Pressable, Modal, TextInput, KeyboardAvoidingView, Platform, Animated, Image } from 'react-native'
 import AnimatedReanimated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated'
+import { useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { IdentifyResponse, SpottedCar } from '../../types'
 import { useStore } from '../../store/useStore'
-import { COLORS, RARITY_COLORS } from '../../constants/theme'
+import { useTheme } from '../../contexts/theme'
+import { processSpot, type ProfileRow } from '../../services/supabase/processSpot'
+import { supabase } from '../../lib/supabase'
+import { useCongratsStore } from '../../store/useCongratsStore'
+import { buildCongratsPayload } from '../../utils/buildCongratsPayload'
 
 interface IdentificationSheetProps {
   visible: boolean
@@ -17,6 +22,8 @@ interface IdentificationSheetProps {
 }
 
 export function IdentificationSheet({ visible, onClose, photoUri, identifyResult, isLoading, additionalPhotos, onAddMorePhotos }: IdentificationSheetProps) {
+  const { colors, rarityColors } = useTheme()
+  const router = useRouter()
   const addSpot  = useStore((s) => s.addSpot)
   const updateXP = useStore((s) => s.updateXP)
   const translateY = useSharedValue(600)
@@ -98,15 +105,67 @@ export function IdentificationSheet({ visible, onClose, photoUri, identifyResult
     }, 2000)
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!identifyResult) return
-    const xpAmount   = identifyResult.xp.total_xp
+    const xpAmount = identifyResult.xp.total_xp
     const parsedYear = parseInt(editedYear, 10) || identifyResult.identification.year
+    const uid = useStore.getState().user.id
+
+    if (uid) {
+      const { data: profileRow } = await supabase.from('profiles').select('*').eq('id', uid).single()
+      if (profileRow) {
+        const result = await processSpot({
+          profile: profileRow as ProfileRow,
+          source: 'camera',
+          photoUri,
+          additionalPhotoUris: additionalPhotos.length > 0 ? additionalPhotos : undefined,
+          identifyResult,
+          edits: { make: editedMake, model: editedModel, trim: editedTrim, year: parsedYear },
+          location: location.trim() || undefined,
+          notes: notes.trim() || undefined,
+        })
+        if (result.status === 'success') {
+          addSpot(result.spot)
+          useStore.getState().setUser({
+            id: result.updatedProfile.id,
+            username: (result.updatedProfile as any).username ?? (result.updatedProfile as any).email ?? 'User',
+            email: (result.updatedProfile.email ?? '').toString(),
+            totalXP: typeof result.updatedProfile.xp === 'number' ? result.updatedProfile.xp : useStore.getState().user.totalXP,
+            streak: typeof result.updatedProfile.streak_count === 'number' ? result.updatedProfile.streak_count : useStore.getState().user.streak,
+            lastSpotDate: result.updatedProfile.last_spotted_at ? new Date(result.updatedProfile.last_spotted_at).toDateString() : useStore.getState().user.lastSpotDate,
+          })
+          const newTotalXp = typeof result.updatedProfile.xp === 'number' ? result.updatedProfile.xp : useStore.getState().user.totalXP
+          const payload = buildCongratsPayload({
+            spottingId: result.spot.id,
+            identifyResult,
+            edits: { make: editedMake, model: editedModel, trim: editedTrim, year: parsedYear },
+            gainedXp: result.gainedXp,
+            updatedProfileXp: newTotalXp,
+          })
+          useCongratsStore.getState().setPayload(payload)
+          onClose()
+          router.push('/post-spot')
+          return
+        }
+        if (result.status === 'limit') {
+          showToast(`Daily limit reached (${result.used}/${result.limit})`)
+          return
+        }
+        if (result.status === 'duplicate') {
+          showToast('Already spotted this car')
+          return
+        }
+        if (result.status === 'error') {
+          showToast(result.message || 'Failed to save')
+          return
+        }
+      }
+    }
+
     const car: SpottedCar = {
       id: Date.now().toString(),
       photoUri,
       photoUris: [photoUri, ...additionalPhotos],
-      // Legacy fields (kept so car-detail.tsx continues to work)
       prediction: { make: editedMake, model: editedModel, year: parsedYear, confidence: identifyResult.identification.uncertain ? 50 : 95 },
       allPredictions: [{ make: editedMake, model: editedModel, year: parsedYear, confidence: identifyResult.identification.uncertain ? 50 : 95 }],
       carDetails: {
@@ -123,7 +182,6 @@ export function IdentificationSheet({ visible, onClose, photoUri, identifyResult
       source: 'camera',
       location: location.trim() || undefined,
       notes: notes.trim() || undefined,
-      // New fields
       trim: editedTrim,
       colour: identifyResult.identification.colour,
       uncertain: identifyResult.identification.uncertain,
@@ -181,7 +239,7 @@ export function IdentificationSheet({ visible, onClose, photoUri, identifyResult
 
         <AnimatedReanimated.View
           style={[{
-            backgroundColor: COLORS.background,
+            backgroundColor: colors.bg,
             borderTopLeftRadius: 24,
             borderTopRightRadius: 24,
             maxHeight: '92%',
@@ -189,25 +247,25 @@ export function IdentificationSheet({ visible, onClose, photoUri, identifyResult
         >
               {/* ── Drag handle ─────────────────────────────────────────── */}
               <View style={{ alignItems: 'center', paddingTop: 12, paddingBottom: 4 }}>
-                <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: COLORS.border }} />
+                <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border }} />
               </View>
 
               {/* ── Save toast (absolute overlay) ───────────────────────── */}
               {toastVisible && (
                 <Animated.View style={{
                   position: 'absolute', top: 16, left: 16, right: 16,
-                  backgroundColor: '#16a34a', borderRadius: 14,
+                  backgroundColor: colors.success, borderRadius: 14,
                   paddingHorizontal: 16, paddingVertical: 13,
                   flexDirection: 'row', alignItems: 'center',
                   zIndex: 100, opacity: toastOpacity,
                   transform: [{ translateY: toastTranslateY }],
-                  shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+                  shadowColor: colors.shadow, shadowOffset: { width: 0, height: 4 },
                   shadowOpacity: 0.3, shadowRadius: 6, elevation: 8,
                 }}>
-                  <Ionicons name="checkmark-circle" size={20} color="white" style={{ marginRight: 10 }} />
+                  <Ionicons name="checkmark-circle" size={20} color={colors.primaryText} style={{ marginRight: 10 }} />
                   <View>
-                    <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 14 }}>Car Spot Saved</Text>
-                    <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12 }}>{toastLabel}</Text>
+                    <Text style={{ color: colors.primaryText, fontWeight: 'bold', fontSize: 14 }}>Car Spot Saved</Text>
+                    <Text style={{ color: colors.primaryText, opacity: 0.8, fontSize: 12 }}>{toastLabel}</Text>
                   </View>
                 </Animated.View>
               )}
@@ -222,7 +280,7 @@ export function IdentificationSheet({ visible, onClose, photoUri, identifyResult
                     transform: [{ translateY: xpTranslateY }],
                   }}
                 >
-                  <Text style={{ color: COLORS.accent, fontSize: 22, fontWeight: 'bold' }}>{xpLabel}</Text>
+                  <Text style={{ color: colors.primary, fontSize: 22, fontWeight: 'bold' }}>{xpLabel}</Text>
                 </Animated.View>
               )}
 
@@ -230,8 +288,8 @@ export function IdentificationSheet({ visible, onClose, photoUri, identifyResult
                 {/* ── Loading state ──────────────────────────────────────── */}
                 {isLoading ? (
                   <View style={{ alignItems: 'center', paddingVertical: 48 }}>
-                    <ActivityIndicator size="large" color={COLORS.accent} />
-                    <Text style={{ color: COLORS.textPrimary, marginTop: 16 }}>Identifying car...</Text>
+                    <ActivityIndicator size="large" color={colors.primary} />
+                    <Text style={{ color: colors.text, marginTop: 16 }}>Identifying car...</Text>
                   </View>
 
                 ) : identifyResult ? (
@@ -241,8 +299,8 @@ export function IdentificationSheet({ visible, onClose, photoUri, identifyResult
                       {photoUri ? (
                         <Image source={{ uri: photoUri }} style={{ width: '100%', height: 220 }} resizeMode="cover" />
                       ) : (
-                        <View style={{ width: '100%', height: 220, backgroundColor: COLORS.backgroundCard, justifyContent: 'center', alignItems: 'center' }}>
-                          <Ionicons name="car-outline" size={56} color={COLORS.textSecondary} />
+                        <View style={{ width: '100%', height: 220, backgroundColor: colors.surface, justifyContent: 'center', alignItems: 'center' }}>
+                          <Ionicons name="car-outline" size={56} color={colors.textMuted} />
                         </View>
                       )}
 
@@ -255,7 +313,7 @@ export function IdentificationSheet({ visible, onClose, photoUri, identifyResult
                               source={{ uri }}
                               style={{
                                 width: 44, height: 44, borderRadius: 8,
-                                borderWidth: 1.5, borderColor: COLORS.background,
+                                borderWidth: 1.5, borderColor: colors.bg,
                                 marginLeft: i > 0 ? -8 : 0,
                               }}
                             />
@@ -278,10 +336,10 @@ export function IdentificationSheet({ visible, onClose, photoUri, identifyResult
                     {/* ── 2. Uncertain warning ───────────────────────────── */}
                     {identifyResult.identification.uncertain && (
                       <View style={{
-                        backgroundColor: '#f59e0b22', borderWidth: 1, borderColor: '#f59e0b',
+                        backgroundColor: colors.primaryMuted, borderWidth: 1, borderColor: colors.primary,
                         borderRadius: 12, padding: 14, marginTop: 12,
                       }}>
-                        <Text style={{ color: '#f59e0b', fontSize: 13 }}>
+                        <Text style={{ color: colors.primary, fontSize: 13 }}>
                           ⚠️ AI wasn't confident about this result. Please verify or edit.
                         </Text>
                       </View>
@@ -290,7 +348,7 @@ export function IdentificationSheet({ visible, onClose, photoUri, identifyResult
                     {/* ── 3. Rarity badge ────────────────────────────────── */}
                     <View style={{
                       alignSelf: 'flex-start',
-                      backgroundColor: RARITY_COLORS[identifyResult.specs.rarity_tier],
+                      backgroundColor: rarityColors[identifyResult.specs.rarity_tier],
                       borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4, marginTop: 14,
                     }}>
                       <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 12 }}>
@@ -299,10 +357,10 @@ export function IdentificationSheet({ visible, onClose, photoUri, identifyResult
                     </View>
 
                     {/* ── 4. Car identity ────────────────────────────────── */}
-                    <Text style={{ color: COLORS.textPrimary, fontSize: 26, fontWeight: 'bold', marginTop: 8 }}>
+                    <Text style={{ color: colors.text, fontSize: 26, fontWeight: 'bold', marginTop: 8 }}>
                       {editedYear} {editedMake}
                     </Text>
-                    <Text style={{ color: COLORS.accent, fontSize: 18, marginTop: 2, marginBottom: 16 }}>
+                    <Text style={{ color: colors.primary, fontSize: 18, marginTop: 2, marginBottom: 16 }}>
                       {editedModel}{editedTrim ? ` ${editedTrim}` : ''}
                     </Text>
 
@@ -310,28 +368,28 @@ export function IdentificationSheet({ visible, onClose, photoUri, identifyResult
                     <View style={{ gap: 10, marginBottom: 16 }}>
                       <View style={{ flexDirection: 'row', gap: 10 }}>
                         {specCards.slice(0, 2).map(card => (
-                          <View key={card.label} style={{ flex: 1, backgroundColor: COLORS.backgroundCard, borderRadius: 12, padding: 12 }}>
-                            <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 4 }}>{card.label}</Text>
-                            <Text style={{ color: COLORS.textPrimary, fontWeight: 'bold', fontSize: 14 }} numberOfLines={1}>{card.value}</Text>
+                          <View key={card.label} style={{ flex: 1, backgroundColor: colors.surface, borderRadius: 12, padding: 12 }}>
+                            <Text style={{ color: colors.textMuted, fontSize: 12, marginBottom: 4 }}>{card.label}</Text>
+                            <Text style={{ color: colors.text, fontWeight: 'bold', fontSize: 14 }} numberOfLines={1}>{card.value}</Text>
                           </View>
                         ))}
                       </View>
                       <View style={{ flexDirection: 'row', gap: 10 }}>
                         {specCards.slice(2, 4).map(card => (
-                          <View key={card.label} style={{ flex: 1, backgroundColor: COLORS.backgroundCard, borderRadius: 12, padding: 12 }}>
-                            <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 4 }}>{card.label}</Text>
-                            <Text style={{ color: COLORS.textPrimary, fontWeight: 'bold', fontSize: 14 }} numberOfLines={1}>{card.value}</Text>
+                          <View key={card.label} style={{ flex: 1, backgroundColor: colors.surface, borderRadius: 12, padding: 12 }}>
+                            <Text style={{ color: colors.textMuted, fontSize: 12, marginBottom: 4 }}>{card.label}</Text>
+                            <Text style={{ color: colors.text, fontWeight: 'bold', fontSize: 14 }} numberOfLines={1}>{card.value}</Text>
                           </View>
                         ))}
                       </View>
                     </View>
 
                     {/* ── 6. XP card ─────────────────────────────────────── */}
-                    <View style={{ backgroundColor: COLORS.backgroundCard, borderRadius: 14, padding: 16, marginBottom: 16 }}>
-                      <Text style={{ color: COLORS.accent, fontSize: 30, fontWeight: 'bold' }}>
+                    <View style={{ backgroundColor: colors.surface, borderRadius: 14, padding: 16, marginBottom: 16 }}>
+                      <Text style={{ color: colors.primary, fontSize: 30, fontWeight: 'bold' }}>
                         {identifyResult.xp.total_xp} XP
                       </Text>
-                      <Text style={{ color: COLORS.textSecondary, fontSize: 13, marginTop: 4, marginBottom: 12 }}>
+                      <Text style={{ color: colors.textMuted, fontSize: 13, marginTop: 4, marginBottom: 12 }}>
                         {identifyResult.xp.breakdown}
                       </Text>
                       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
@@ -340,13 +398,13 @@ export function IdentificationSheet({ visible, onClose, photoUri, identifyResult
                             key={pill.label}
                             style={{
                               flexDirection: 'row', alignItems: 'center',
-                              backgroundColor: COLORS.background, borderRadius: 8,
+                              backgroundColor: colors.bg, borderRadius: 8,
                               paddingHorizontal: 10, paddingVertical: 6,
                             }}
                           >
                             <Text style={{ fontSize: 13 }}>{pill.emoji}</Text>
-                            <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginLeft: 4 }}>{pill.label}</Text>
-                            <Text style={{ color: COLORS.textPrimary, fontSize: 12, fontWeight: 'bold', marginLeft: 4 }}>×{pill.value}</Text>
+                            <Text style={{ color: colors.textMuted, fontSize: 12, marginLeft: 4 }}>{pill.label}</Text>
+                            <Text style={{ color: colors.text, fontSize: 12, fontWeight: 'bold', marginLeft: 4 }}>×{pill.value}</Text>
                           </View>
                         ))}
                       </View>
@@ -356,15 +414,15 @@ export function IdentificationSheet({ visible, onClose, photoUri, identifyResult
                     <TouchableOpacity
                       onPress={() => setEditMode(v => !v)}
                       style={{
-                        borderWidth: 1, borderColor: COLORS.border, borderRadius: 12,
+                        borderWidth: 1, borderColor: colors.border, borderRadius: 12,
                         padding: 14, alignItems: 'center', marginBottom: 12,
                       }}
                     >
-                      <Text style={{ color: COLORS.textPrimary, fontWeight: '600' }}>✏️  Edit Identification</Text>
+                      <Text style={{ color: colors.text, fontWeight: '600' }}>✏️  Edit Identification</Text>
                     </TouchableOpacity>
 
                     {editMode && (
-                      <View style={{ backgroundColor: COLORS.backgroundCard, borderRadius: 12, padding: 14, marginBottom: 12, gap: 10 }}>
+                      <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 14, marginBottom: 12, gap: 10 }}>
                         {[
                           { placeholder: 'Make',  value: editedMake,  set: setEditedMake,  type: 'default' as const },
                           { placeholder: 'Model', value: editedModel, set: setEditedModel, type: 'default' as const },
@@ -374,11 +432,11 @@ export function IdentificationSheet({ visible, onClose, photoUri, identifyResult
                           <TextInput
                             key={field.placeholder}
                             placeholder={field.placeholder}
-                            placeholderTextColor={COLORS.textSecondary}
+                            placeholderTextColor={colors.textMuted}
                             style={{
-                              backgroundColor: COLORS.background, borderRadius: 8,
-                              padding: 12, color: COLORS.textPrimary,
-                              borderWidth: 1, borderColor: COLORS.border,
+                              backgroundColor: colors.bg, borderRadius: 8,
+                              padding: 12, color: colors.text,
+                              borderWidth: 1, borderColor: colors.border,
                             }}
                             value={field.value}
                             onChangeText={field.set}
@@ -388,9 +446,9 @@ export function IdentificationSheet({ visible, onClose, photoUri, identifyResult
                         <View style={{ flexDirection: 'row', gap: 10 }}>
                           <TouchableOpacity
                             onPress={() => setEditMode(false)}
-                            style={{ flex: 1, backgroundColor: COLORS.accent, borderRadius: 8, padding: 12, alignItems: 'center' }}
+                            style={{ flex: 1, backgroundColor: colors.primary, borderRadius: 8, padding: 12, alignItems: 'center' }}
                           >
-                            <Text style={{ color: 'white', fontWeight: 'bold' }}>Confirm</Text>
+                            <Text style={{ color: colors.primaryText, fontWeight: 'bold' }}>Confirm</Text>
                           </TouchableOpacity>
                           <TouchableOpacity
                             onPress={() => {
@@ -400,9 +458,9 @@ export function IdentificationSheet({ visible, onClose, photoUri, identifyResult
                               setEditedYear(identifyResult.identification.year.toString())
                               setEditMode(false)
                             }}
-                            style={{ flex: 1, borderWidth: 1, borderColor: COLORS.border, borderRadius: 8, padding: 12, alignItems: 'center' }}
+                            style={{ flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 12, alignItems: 'center' }}
                           >
-                            <Text style={{ color: COLORS.textSecondary, fontWeight: '600' }}>Cancel</Text>
+                            <Text style={{ color: colors.textMuted, fontWeight: '600' }}>Cancel</Text>
                           </TouchableOpacity>
                         </View>
                       </View>
@@ -411,15 +469,15 @@ export function IdentificationSheet({ visible, onClose, photoUri, identifyResult
                     {/* ── 8. Location ────────────────────────────────────── */}
                     <View style={{
                       flexDirection: 'row', alignItems: 'center',
-                      backgroundColor: COLORS.backgroundCard, borderRadius: 10,
+                      backgroundColor: colors.surface, borderRadius: 10,
                       paddingHorizontal: 14, marginBottom: 12,
-                      borderWidth: 1, borderColor: COLORS.border,
+                      borderWidth: 1, borderColor: colors.border,
                     }}>
-                      <Ionicons name="location-outline" size={18} color={COLORS.textSecondary} style={{ marginRight: 8 }} />
+                      <Ionicons name="location-outline" size={18} color={colors.textMuted} style={{ marginRight: 8 }} />
                       <TextInput
                         placeholder="e.g. Nürburgring, Germany"
-                        placeholderTextColor={COLORS.textSecondary}
-                        style={{ flex: 1, paddingVertical: 14, color: COLORS.textPrimary }}
+                        placeholderTextColor={colors.textMuted}
+                        style={{ flex: 1, paddingVertical: 14, color: colors.text }}
                         value={location}
                         onChangeText={setLocation}
                       />
@@ -428,15 +486,15 @@ export function IdentificationSheet({ visible, onClose, photoUri, identifyResult
                     {/* ── 9. Notes ───────────────────────────────────────── */}
                     <View style={{
                       flexDirection: 'row', alignItems: 'flex-start',
-                      backgroundColor: COLORS.backgroundCard, borderRadius: 10,
+                      backgroundColor: colors.surface, borderRadius: 10,
                       paddingHorizontal: 14, marginBottom: 16,
-                      borderWidth: 1, borderColor: COLORS.border,
+                      borderWidth: 1, borderColor: colors.border,
                     }}>
-                      <Ionicons name="document-text-outline" size={18} color={COLORS.textSecondary} style={{ marginRight: 8, marginTop: 14 }} />
+                      <Ionicons name="document-text-outline" size={18} color={colors.textMuted} style={{ marginRight: 8, marginTop: 14 }} />
                       <TextInput
                         placeholder="Any details worth remembering..."
-                        placeholderTextColor={COLORS.textSecondary}
-                        style={{ flex: 1, paddingVertical: 14, color: COLORS.textPrimary, height: 80, textAlignVertical: 'top' }}
+                        placeholderTextColor={colors.textMuted}
+                        style={{ flex: 1, paddingVertical: 14, color: colors.text, height: 80, textAlignVertical: 'top' }}
                         value={notes}
                         onChangeText={setNotes}
                         multiline
@@ -457,17 +515,17 @@ export function IdentificationSheet({ visible, onClose, photoUri, identifyResult
                       onPress={onAddMorePhotos}
                       style={{
                         flexDirection: 'row', alignItems: 'center',
-                        borderWidth: 1.5, borderColor: COLORS.border, borderStyle: 'dashed',
+                        borderWidth: 1.5, borderColor: colors.border, borderStyle: 'dashed',
                         borderRadius: 12, padding: 14, marginBottom: 12, gap: 10,
                       }}
                     >
-                      <Ionicons name="camera-outline" size={20} color={COLORS.accent} />
-                      <Text style={{ color: COLORS.accent, fontWeight: '600' }}>Add More Photos</Text>
+                      <Ionicons name="camera-outline" size={20} color={colors.primary} />
+                      <Text style={{ color: colors.primary, fontWeight: '600' }}>Add More Photos</Text>
                     </Pressable>
 
                     {/* ── 12. Save Spot ──────────────────────────────────── */}
-                    <TouchableOpacity onPress={handleSave} style={{ backgroundColor: COLORS.accent, padding: 16, borderRadius: 14 }}>
-                      <Text style={{ color: 'white', textAlign: 'center', fontWeight: 'bold', fontSize: 16 }}>Save Spot</Text>
+                    <TouchableOpacity onPress={handleSave} style={{ backgroundColor: colors.primary, padding: 16, borderRadius: 14 }}>
+                      <Text style={{ color: colors.primaryText, textAlign: 'center', fontWeight: 'bold', fontSize: 16 }}>Save Spot</Text>
                     </TouchableOpacity>
                   </>
                 ) : null}

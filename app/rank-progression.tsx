@@ -4,18 +4,19 @@ import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { RANKS } from '../services/gamification'
-import { COLORS } from '../constants/theme'
+import { useTheme } from '../contexts/theme'
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, withDelay, Easing } from 'react-native-reanimated'
 
 const RANK_ICONS = ['🌱', '🔍', '🚗', '🔭', '🏹', '🧭', '👁️', '⭐', '💎', '🏅', '🏆', '👑', '⚡', '🌟']
 
-function RankRow({ rank, idx, achieved, isCurrent, animate, totalRanks }: {
+function RankRow({ rank, idx, achieved, isCurrent, animate, totalRanks, colors }: {
   rank: typeof RANKS[0]
   idx: number
   achieved: boolean
   isCurrent: boolean
   animate: boolean
   totalRanks: number
+  colors: { primary: string; primaryText: string; text: string; textMuted: string; border: string; success: string }
 }) {
   const opacity    = useSharedValue(animate ? 0 : 1)
   const translateX = useSharedValue(animate ? 30 : 0)
@@ -37,44 +38,45 @@ function RankRow({ rank, idx, achieved, isCurrent, animate, totalRanks }: {
         alignItems: 'center',
         paddingVertical: 14,
         paddingHorizontal: 16,
-        backgroundColor: isCurrent ? COLORS.accent + '18' : 'transparent',
+        backgroundColor: isCurrent ? colors.primary + '18' : 'transparent',
       }}>
         <View style={{
           width: 44, height: 44, borderRadius: 22,
-          backgroundColor: achieved ? (isCurrent ? COLORS.accent : COLORS.accent + '33') : COLORS.border,
+          backgroundColor: achieved ? (isCurrent ? colors.primary : colors.primary + '33') : colors.border,
           justifyContent: 'center', alignItems: 'center', marginRight: 14,
         }}>
           <Text style={{ fontSize: 20, opacity: achieved ? 1 : 0.4 }}>{RANK_ICONS[idx]}</Text>
         </View>
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Text style={{ color: achieved ? COLORS.textPrimary : COLORS.textSecondary, fontWeight: isCurrent ? 'bold' : '600', fontSize: 15 }}>
+            <Text style={{ color: achieved ? colors.text : colors.textMuted, fontWeight: isCurrent ? 'bold' : '600', fontSize: 15 }}>
               {rank.title}
             </Text>
             {isCurrent && (
-              <View style={{ backgroundColor: COLORS.accent, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 }}>
-                <Text style={{ color: 'white', fontSize: 10, fontWeight: 'bold' }}>YOU</Text>
+              <View style={{ backgroundColor: colors.primary, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 }}>
+                <Text style={{ color: colors.primaryText, fontSize: 10, fontWeight: 'bold' }}>YOU</Text>
               </View>
             )}
           </View>
-          <Text style={{ color: achieved ? COLORS.accent : COLORS.textSecondary, fontSize: 12, marginTop: 2 }}>
+          <Text style={{ color: achieved ? colors.primary : colors.textMuted, fontSize: 12, marginTop: 2 }}>
             {rank.xpRequired.toLocaleString()} XP required
           </Text>
         </View>
         {achieved ? (
-          <Ionicons name={isCurrent ? 'radio-button-on' : 'checkmark-circle'} size={22} color={isCurrent ? COLORS.accent : '#16a34a'} />
+          <Ionicons name={isCurrent ? 'radio-button-on' : 'checkmark-circle'} size={22} color={isCurrent ? colors.primary : colors.success} />
         ) : (
-          <Ionicons name="lock-closed-outline" size={18} color={COLORS.border} />
+          <Ionicons name="lock-closed-outline" size={18} color={colors.border} />
         )}
       </View>
       {idx < totalRanks - 1 && (
-        <View style={{ height: 1, backgroundColor: COLORS.border, marginLeft: 74 }} />
+        <View style={{ height: 1, backgroundColor: colors.border, marginLeft: 74 }} />
       )}
     </Animated.View>
   )
 }
 
 export default function RankProgressionScreen() {
+  const { colors } = useTheme()
   const { xp: xpParam, progressPercent: ppParam } = useLocalSearchParams<{ xp: string; progressPercent: string }>()
   const router = useRouter()
   const insets = useSafeAreaInsets()
@@ -97,27 +99,27 @@ export default function RankProgressionScreen() {
 
   return (
     <ScrollView
-      style={{ flex: 1, backgroundColor: COLORS.background }}
+      style={{ flex: 1, backgroundColor: colors.bg }}
       contentContainerStyle={{ paddingTop: insets.top + 12, paddingHorizontal: 16, paddingBottom: 40 }}
     >
       {/* Header */}
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 24 }}>
         <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 16 }}>
-          <Ionicons name="arrow-back" size={24} color={COLORS.textPrimary} />
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={{ color: COLORS.textPrimary, fontSize: 22, fontWeight: 'bold' }}>Rank Progression</Text>
+        <Text style={{ color: colors.text, fontSize: 22, fontWeight: 'bold' }}>Rank Progression</Text>
       </View>
 
       {/* Current rank hero card */}
-      <View style={{ backgroundColor: COLORS.backgroundCard, borderRadius: 16, padding: 20, marginBottom: 28, borderWidth: 2, borderColor: COLORS.accent }}>
+      <View style={{ backgroundColor: colors.surface, borderRadius: 16, padding: 20, marginBottom: 28, borderWidth: 2, borderColor: colors.primary }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
           <Text style={{ fontSize: 40, marginRight: 14 }}>{RANK_ICONS[currentIdx]}</Text>
           <View style={{ flex: 1 }}>
-            <Text style={{ color: COLORS.accent, fontSize: 11, fontWeight: 'bold', letterSpacing: 1, textTransform: 'uppercase' }}>
+            <Text style={{ color: colors.primary, fontSize: 11, fontWeight: 'bold', letterSpacing: 1, textTransform: 'uppercase' }}>
               YOUR RANK
             </Text>
-            <Text style={{ color: COLORS.textPrimary, fontSize: 24, fontWeight: 'bold' }}>{currentRank.title}</Text>
-            <Text style={{ color: COLORS.textSecondary, fontSize: 13, marginTop: 2 }}>
+            <Text style={{ color: colors.text, fontSize: 24, fontWeight: 'bold' }}>{currentRank.title}</Text>
+            <Text style={{ color: colors.textMuted, fontSize: 13, marginTop: 2 }}>
               Rank #{currentRank.rank} · {totalXP} XP
             </Text>
           </View>
@@ -125,26 +127,26 @@ export default function RankProgressionScreen() {
         {nextRank ? (
           <>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-              <Text style={{ color: COLORS.textSecondary, fontSize: 12 }}>{currentRank.title}</Text>
-              <Text style={{ color: COLORS.textSecondary, fontSize: 12 }}>{nextRank.title} ({nextRank.xpRequired} XP)</Text>
+              <Text style={{ color: colors.textMuted, fontSize: 12 }}>{currentRank.title}</Text>
+              <Text style={{ color: colors.textMuted, fontSize: 12 }}>{nextRank.title} ({nextRank.xpRequired} XP)</Text>
             </View>
-            <View style={{ height: 10, backgroundColor: COLORS.border, borderRadius: 5 }}>
-              <Animated.View style={[{ height: 10, backgroundColor: COLORS.accent, borderRadius: 5 }, xpBarStyle]} />
+            <View style={{ height: 10, backgroundColor: colors.border, borderRadius: 5 }}>
+              <Animated.View style={[{ height: 10, backgroundColor: colors.primary, borderRadius: 5 }, xpBarStyle]} />
             </View>
-            <Text style={{ color: COLORS.accent, fontSize: 12, marginTop: 6 }}>
+            <Text style={{ color: colors.primary, fontSize: 12, marginTop: 6 }}>
               {nextRank.xpRequired - totalXP} XP to next rank
             </Text>
           </>
         ) : (
-          <Text style={{ color: '#f59e0b', fontWeight: 'bold' }}>🏆 Maximum Rank Achieved!</Text>
+          <Text style={{ color: colors.primary, fontWeight: 'bold' }}>🏆 Maximum Rank Achieved!</Text>
         )}
       </View>
 
       {/* All ranks list */}
-      <Text style={{ color: COLORS.textSecondary, fontSize: 12, fontWeight: 'bold', letterSpacing: 1, marginBottom: 12, textTransform: 'uppercase' }}>
+      <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: 'bold', letterSpacing: 1, marginBottom: 12, textTransform: 'uppercase' }}>
         All Ranks
       </Text>
-      <View style={{ backgroundColor: COLORS.backgroundCard, borderRadius: 16, overflow: 'hidden' }}>
+      <View style={{ backgroundColor: colors.surface, borderRadius: 16, overflow: 'hidden' }}>
         {RANKS.map((rank, idx) => (
           <RankRow
             key={rank.rank}
@@ -154,6 +156,7 @@ export default function RankProgressionScreen() {
             isCurrent={idx === currentIdx}
             animate={idx < 8}
             totalRanks={RANKS.length}
+            colors={colors}
           />
         ))}
       </View>

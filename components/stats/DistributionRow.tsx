@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react'
 import { View, Text } from 'react-native'
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, withDelay, Easing } from 'react-native-reanimated'
-import { COLORS } from '../../constants/theme'
+import { useTheme } from '../../contexts/theme'
 
 interface DistributionRowProps {
   make: string
@@ -11,6 +11,7 @@ interface DistributionRowProps {
 }
 
 export function DistributionRow({ make, count, maxCount, index }: DistributionRowProps) {
+  const { colors } = useTheme()
   const targetWidth = (count / maxCount) * 100
   const barAnim  = useSharedValue(0)
   const barStyle = useAnimatedStyle(() => ({ width: `${barAnim.value}%` as any }))
@@ -21,10 +22,10 @@ export function DistributionRow({ make, count, maxCount, index }: DistributionRo
 
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 4 }}>
-      <Text style={{ color: COLORS.textPrimary, flex: 1 }}>{make}</Text>
-      <Text style={{ color: COLORS.textSecondary, marginRight: 8 }}>{count}</Text>
-      <View style={{ height: 8, backgroundColor: COLORS.border, borderRadius: 4, flex: 2 }}>
-        <Animated.View style={[{ height: 8, backgroundColor: COLORS.accent, borderRadius: 4 }, barStyle]} />
+      <Text style={{ color: colors.text, flex: 1 }}>{make}</Text>
+      <Text style={{ color: colors.textMuted, marginRight: 8 }}>{count}</Text>
+      <View style={{ height: 8, backgroundColor: colors.border, borderRadius: 4, flex: 2 }}>
+        <Animated.View style={[{ height: 8, backgroundColor: colors.primary, borderRadius: 4 }, barStyle]} />
       </View>
     </View>
   )

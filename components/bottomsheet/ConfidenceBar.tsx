@@ -2,7 +2,7 @@ import React, { useEffect } from 'react'
 import { View, Text } from 'react-native'
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, withDelay } from 'react-native-reanimated'
 import { Prediction } from '../../types'
-import { COLORS } from '../../constants/theme'
+import { useTheme } from '../../contexts/theme'
 
 interface ConfidenceBarProps {
   prediction: Prediction
@@ -10,6 +10,7 @@ interface ConfidenceBarProps {
 }
 
 export function ConfidenceBar({ prediction, index }: ConfidenceBarProps) {
+  const { colors } = useTheme()
   const { make, model, confidence } = prediction
   const progress = useSharedValue(0)
 
@@ -24,11 +25,11 @@ export function ConfidenceBar({ prediction, index }: ConfidenceBarProps) {
   return (
     <View style={{ marginVertical: 8 }}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-        <Text style={{ color: COLORS.textPrimary }}>{make} {model}</Text>
-        <Text style={{ color: COLORS.textSecondary }}>{confidence}%</Text>
+        <Text style={{ color: colors.text }}>{make} {model}</Text>
+        <Text style={{ color: colors.textMuted }}>{confidence}%</Text>
       </View>
-      <View style={{ height: 8, backgroundColor: COLORS.border, borderRadius: 4, marginTop: 4 }}>
-        <Animated.View style={[{ height: 8, backgroundColor: COLORS.accent, borderRadius: 4 }, animatedStyle]} />
+      <View style={{ height: 8, backgroundColor: colors.border, borderRadius: 4, marginTop: 4 }}>
+        <Animated.View style={[{ height: 8, backgroundColor: colors.primary, borderRadius: 4 }, animatedStyle]} />
       </View>
     </View>
   )

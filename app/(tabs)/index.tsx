@@ -8,12 +8,13 @@ import { CameraControls } from '../../components/camera/CameraControls'
 import { identifyCar } from '../../services/carIdentifier'
 import { useStore } from '../../store/useStore'
 import { IdentifyResponse } from '../../types'
-import { COLORS } from '../../constants/theme'
+import { useTheme } from '../../contexts/theme'
 
 const SHUTTER_SIZE = 80
 const MAX_ADDITIONAL_PHOTOS = 5  // caps additional photos only; primary shot is unaffected
 
 export default function SpotScreen() {
+  const { colors } = useTheme()
   const [hasPermission, setHasPermission]     = useState<boolean | null>(null)
   const [isProcessing, setIsProcessing]       = useState(false)
   const [sheetVisible, setSheetVisible]       = useState(false)
@@ -84,27 +85,27 @@ export default function SpotScreen() {
   }
 
   if (hasPermission === null) {
-    return <View style={{ flex: 1, backgroundColor: COLORS.background }} />
+    return <View style={{ flex: 1, backgroundColor: colors.bg }} />
   }
 
   if (hasPermission === false) {
     return (
-      <View style={{ flex: 1, backgroundColor: COLORS.background, justifyContent: 'center', alignItems: 'center' }}>
-        <Text style={{ color: COLORS.textPrimary }}>No access to camera</Text>
+      <View style={{ flex: 1, backgroundColor: colors.bg, justifyContent: 'center', alignItems: 'center' }}>
+        <Text style={{ color: colors.text }}>No access to camera</Text>
       </View>
     )
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: COLORS.background }}>
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
       {/* Top bar */}
       <View style={{ position: 'absolute', top: 0, left: 0, right: 0, paddingTop: insets.top + 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, zIndex: 1 }}>
-        <Text style={{ color: 'white', fontSize: 20, fontWeight: 'bold' }}>CARSPOTTER</Text>
+        <Text style={{ color: colors.text, fontSize: 20, fontWeight: 'bold' }}>CARSPOTTER</Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           {/* Pill: "AI Ready" in normal mode, "Add Angles" in add angles mode */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', borderColor: COLORS.accent, borderWidth: 1, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 }}>
-            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.accent, marginRight: 6 }} />
-            <Text style={{ color: COLORS.accent }}>{addAnglesMode ? 'Add Angles' : 'AI Ready'}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', borderColor: colors.primary, borderWidth: 1, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 }}>
+            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.primary, marginRight: 6 }} />
+            <Text style={{ color: colors.primary }}>{addAnglesMode ? 'Add Angles' : 'AI Ready'}</Text>
           </View>
         </View>
       </View>
@@ -132,7 +133,7 @@ export default function SpotScreen() {
         {/* Thumbnail strip — add angles mode only, bottom-left */}
         {addAnglesMode && additionalPhotos.length > 0 && (
           <View style={{ position: 'absolute', left: 24, top: 0, height: SHUTTER_SIZE, flexDirection: 'column', justifyContent: 'center' }}>
-            <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginBottom: 4, textAlign: 'center' }}>
+            <Text style={{ color: colors.textMuted, fontSize: 12, marginBottom: 4, textAlign: 'center' }}>
               {additionalPhotos.length} added
             </Text>
             <View style={{ flexDirection: 'row' }}>
@@ -159,9 +160,9 @@ export default function SpotScreen() {
         {addAnglesMode && (
           <TouchableOpacity
             onPress={handleProceed}
-            style={{ position: 'absolute', right: 16, top: (SHUTTER_SIZE - 44) / 2, backgroundColor: COLORS.accent, borderRadius: 12, paddingHorizontal: 24, paddingVertical: 12 }}
+            style={{ position: 'absolute', right: 16, top: (SHUTTER_SIZE - 44) / 2, backgroundColor: colors.primary, borderRadius: 12, paddingHorizontal: 24, paddingVertical: 12 }}
           >
-            <Text style={{ color: 'white', fontWeight: 'bold' }}>Proceed</Text>
+            <Text style={{ color: colors.primaryText, fontWeight: 'bold' }}>Proceed</Text>
           </TouchableOpacity>
         )}
       </View>

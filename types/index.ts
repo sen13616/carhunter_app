@@ -59,6 +59,48 @@ export interface SpottedCar {
 
 export interface UserStats { totalXP: number; streak: number; lastSpotDate: string }
 
-export interface User { id: string; username: string; email: string; totalXP: number; streak: number; lastSpotDate: string }
+export interface User {
+  id: string
+  username: string
+  email: string
+  fullName?: string
+  location?: string
+  bio?: string
+  avatarUrl?: string
+  totalXP: number
+  streak: number
+  lastSpotDate: string
+}
 
-export interface Settings { cameraGrid: boolean; notifications: boolean; darkMode: boolean }
+export interface ProfileRow {
+  id: string
+  full_name: string | null
+  username: string | null
+  email?: string | null
+  location?: string | null
+  bio?: string | null
+  avatar_url?: string | null
+  xp?: number | null
+  streak_count?: number | null
+  last_spotted_at?: string | null
+  rank_title?: string | null
+  daily_spots_used?: number | null
+  extra_spots?: number | null
+  plan?: string | null
+  is_subscribed?: boolean | null
+}
+
+export interface Settings { cameraGrid: boolean; notifications: boolean; darkMode: boolean; garageViewMode: 'list' | 'card' }
+
+/** Legacy car from public.legacy_cars (display + list). */
+export interface LegacyCar {
+  id: string
+  user_id: string
+  make: string
+  model: string
+  year: number | null
+  trim: string | null
+  colour: string | null
+  rarity_tier: string | null
+  created_at: string | null
+}

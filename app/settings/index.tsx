@@ -1,49 +1,52 @@
 import React from 'react'
-import { View, Text, TouchableOpacity, ScrollView, Switch, Pressable, Alert } from 'react-native'
+import { View, Text, TouchableOpacity, ScrollView, Switch, Pressable, Alert, Image } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { useAuth } from '../../contexts/auth'
-import { COLORS } from '../../constants/theme'
+import { useTheme } from '../../contexts/theme'
 import { useStore } from '../../store/useStore'
+import { ThemePicker } from '../../components/settings/ThemePicker'
 
-function SectionHeader({ title }: { title: string }) {
+function SectionHeader({ title, colors }: { title: string; colors: { textMuted: string } }) {
   return (
-    <Text style={{ color: COLORS.textSecondary, fontSize: 12, fontWeight: 'bold', letterSpacing: 1, marginTop: 24, marginBottom: 8, textTransform: 'uppercase' }}>
+    <Text style={{ color: colors.textMuted, fontSize: 12, fontWeight: 'bold', letterSpacing: 1, marginTop: 24, marginBottom: 8, textTransform: 'uppercase' }}>
       {title}
     </Text>
   )
 }
 
 function SettingRow({
-  icon, iconBg = COLORS.accent, title, subtitle, right, onPress, showDivider = false,
+  icon, iconBg, title, subtitle, right, onPress, showDivider = false, colors,
 }: {
   icon: string; iconBg?: string; title: string; subtitle?: string
   right?: React.ReactNode; onPress?: () => void; showDivider?: boolean
+  colors: { border: string; text: string; textMuted: string; primary: string }
 }) {
   return (
     <>
       <Pressable
         onPress={onPress}
         style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16 }}
-        android_ripple={{ color: COLORS.border }}
+        android_ripple={{ color: colors.border }}
       >
-        <View style={{ width: 36, height: 36, borderRadius: 9, backgroundColor: iconBg, justifyContent: 'center', alignItems: 'center', marginRight: 14 }}>
+        <View style={{ width: 36, height: 36, borderRadius: 9, backgroundColor: iconBg ?? colors.primary, justifyContent: 'center', alignItems: 'center', marginRight: 14 }}>
           <Ionicons name={icon as any} size={18} color="white" />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={{ color: COLORS.textPrimary, fontWeight: '600', fontSize: 15 }}>{title}</Text>
-          {subtitle && <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginTop: 2 }}>{subtitle}</Text>}
+          <Text style={{ color: colors.text, fontWeight: '600', fontSize: 15 }}>{title}</Text>
+          {subtitle && <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }}>{subtitle}</Text>}
         </View>
         {right}
       </Pressable>
-      {showDivider && <View style={{ height: 1, backgroundColor: COLORS.border, marginHorizontal: 16 }} />}
+      {showDivider && <View style={{ height: 1, backgroundColor: colors.border, marginHorizontal: 16 }} />}
     </>
   )
 }
 
 export default function SettingsScreen() {
   const { signOut } = useAuth()
+  const { colors } = useTheme()
   const router = useRouter()
   const insets = useSafeAreaInsets()
   const user               = useStore((s) => s.user)
@@ -53,7 +56,6 @@ export default function SettingsScreen() {
   const clearSpots         = useStore((s) => s.clearSpots)
 
   const handleCameraGridToggle = (val: boolean) => setSetting('cameraGrid', val)
-
   const handleNotificationsToggle = (val: boolean) => setSetting('notifications', val)
 
   const handleResetGarage = () => {
@@ -76,36 +78,44 @@ export default function SettingsScreen() {
 
   return (
     <ScrollView
-      style={{ flex: 1, backgroundColor: COLORS.background }}
+      style={{ flex: 1, backgroundColor: colors.bg }}
       contentContainerStyle={{ paddingTop: insets.top + 12, paddingHorizontal: 16, paddingBottom: 40 }}
     >
-      {/* Custom header */}
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 24 }}>
         <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 16 }}>
-          <Ionicons name="arrow-back" size={24} color={COLORS.textPrimary} />
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={{ color: COLORS.textPrimary, fontSize: 22, fontWeight: 'bold' }}>Settings</Text>
+        <Text style={{ color: colors.text, fontSize: 22, fontWeight: 'bold' }}>Settings</Text>
       </View>
 
-      {/* Profile card */}
       <Pressable
         onPress={() => router.push('/settings/edit-profile')}
-        style={{ backgroundColor: COLORS.backgroundCard, borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}
+        style={{ backgroundColor: colors.surface, borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}
       >
-        <View style={{ width: 56, height: 56, borderRadius: 28, borderWidth: 2, borderColor: COLORS.accent, backgroundColor: COLORS.border, justifyContent: 'center', alignItems: 'center', marginRight: 14 }}>
-          <Ionicons name="person" size={28} color={COLORS.textSecondary} />
+        <View style={{ width: 56, height: 56, borderRadius: 28, borderWidth: 2, borderColor: colors.primary, backgroundColor: colors.border, justifyContent: 'center', alignItems: 'center', marginRight: 14, overflow: 'hidden' }}>
+          {user.avatarUrl ? (
+            <Image source={{ uri: user.avatarUrl }} style={{ width: 56, height: 56 }} resizeMode="cover" />
+          ) : (
+            <Text style={{ fontSize: 22, fontWeight: '700', color: colors.primary }}>
+              {(user.fullName ?? user.username ?? 'U').charAt(0).toUpperCase()}
+            </Text>
+          )}
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={{ color: COLORS.textPrimary, fontWeight: 'bold', fontSize: 16 }}>{user.username}</Text>
-          <Text style={{ color: COLORS.textSecondary, fontSize: 13, marginTop: 2 }}>{user.email}</Text>
+          <Text style={{ color: colors.text, fontWeight: 'bold', fontSize: 16 }}>{user.fullName ?? user.username ?? 'Profile'}</Text>
+          <Text style={{ color: colors.textMuted, fontSize: 13, marginTop: 2 }}>@{user.username || '—'}</Text>
+          {user.location ? <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }}>{user.location}</Text> : null}
         </View>
-        <Ionicons name="chevron-forward" size={18} color={COLORS.textSecondary} />
+        <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
       </Pressable>
 
-      {/* Preferences */}
-      <SectionHeader title="Preferences" />
-      <View style={{ backgroundColor: COLORS.backgroundCard, borderRadius: 16, overflow: 'hidden' }}>
+      <SectionHeader title="Theme" colors={colors} />
+      <ThemePicker />
+
+      <SectionHeader title="Preferences" colors={colors} />
+      <View style={{ backgroundColor: colors.surface, borderRadius: 16, overflow: 'hidden' }}>
         <SettingRow
+          colors={colors}
           icon="notifications-outline"
           title="Notifications"
           subtitle="Get alerts for rare spots nearby"
@@ -113,83 +123,70 @@ export default function SettingsScreen() {
             <Switch
               value={notificationsEnabled}
               onValueChange={handleNotificationsToggle}
-              trackColor={{ false: COLORS.border, true: COLORS.accent }}
+              trackColor={{ false: colors.border, true: colors.primary }}
               thumbColor="white"
             />
           }
           showDivider
         />
         <SettingRow
+          colors={colors}
           icon="grid-outline"
-          iconBg="#0e7490"
+          iconBg={colors.primaryMuted}
           title="Camera Grid"
           subtitle="Show 3×3 grid overlay on camera"
           right={
             <Switch
               value={cameraGridEnabled}
               onValueChange={handleCameraGridToggle}
-              trackColor={{ false: COLORS.border, true: COLORS.accent }}
-              thumbColor="white"
-            />
-          }
-          showDivider
-        />
-        <SettingRow
-          icon="moon-outline"
-          iconBg="#374151"
-          title="Dark Mode"
-          subtitle="Always enabled for optimal viewing"
-          right={
-            <Switch
-              value={true}
-              disabled
-              trackColor={{ false: COLORS.border, true: COLORS.accent }}
+              trackColor={{ false: colors.border, true: colors.primary }}
               thumbColor="white"
             />
           }
         />
       </View>
 
-      {/* About */}
-      <SectionHeader title="About" />
-      <View style={{ backgroundColor: COLORS.backgroundCard, borderRadius: 16, overflow: 'hidden' }}>
+      <SectionHeader title="About" colors={colors} />
+      <View style={{ backgroundColor: colors.surface, borderRadius: 16, overflow: 'hidden' }}>
         <SettingRow
+          colors={colors}
           icon="information-circle-outline"
-          iconBg="#0e7490"
+          iconBg={colors.primaryMuted}
           title="About CarSpotter"
           subtitle="Version 1.0.0"
-          right={<Ionicons name="chevron-forward" size={18} color={COLORS.textSecondary} />}
+          right={<Ionicons name="chevron-forward" size={18} color={colors.textMuted} />}
           onPress={() => {}}
           showDivider
         />
         <SettingRow
+          colors={colors}
           icon="star-outline"
-          iconBg="#b45309"
+          iconBg={colors.primaryMuted}
           title="Rate the App"
           subtitle="Help us improve"
-          right={<Ionicons name="chevron-forward" size={18} color={COLORS.textSecondary} />}
+          right={<Ionicons name="chevron-forward" size={18} color={colors.textMuted} />}
           onPress={() => {}}
           showDivider
         />
         <SettingRow
+          colors={colors}
           icon="trash-outline"
-          iconBg="#7f1d1d"
+          iconBg={colors.danger}
           title="Reset Garage"
           subtitle="Delete all spotted cars"
-          right={<Ionicons name="chevron-forward" size={18} color={COLORS.textSecondary} />}
+          right={<Ionicons name="chevron-forward" size={18} color={colors.textMuted} />}
           onPress={handleResetGarage}
         />
       </View>
 
-      {/* Sign out */}
       <TouchableOpacity
         onPress={async () => { await signOut(); router.replace('/auth') }}
-        style={{ marginTop: 32, borderWidth: 1.5, borderColor: '#ef4444', borderRadius: 14, paddingVertical: 15, alignItems: 'center', backgroundColor: '#ef444415' }}
+        style={{ marginTop: 32, borderWidth: 1.5, borderColor: colors.danger, borderRadius: 14, paddingVertical: 15, alignItems: 'center', backgroundColor: colors.surface2 }}
       >
-        <Text style={{ color: '#ef4444', fontWeight: 'bold', fontSize: 16 }}>Sign Out</Text>
+        <Text style={{ color: colors.danger, fontWeight: 'bold', fontSize: 16 }}>Sign Out</Text>
       </TouchableOpacity>
 
-      <Text style={{ color: COLORS.textSecondary, fontSize: 12, textAlign: 'center', marginTop: 16 }}>
+      <Text style={{ color: colors.textMuted, fontSize: 12, textAlign: 'center', marginTop: 16 }}>
         CarSpotter v1.0.0
       </Text>
     </ScrollView>

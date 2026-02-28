@@ -3,6 +3,8 @@ import type { IdentifyResponse, SpottedCar } from '../../types'
 import { createCarKey } from '../../utils/carKey'
 import { canUserSpot, type ProfileForLimit } from './dailyLimit'
 import { insertSpotting, isDuplicateSpotting, mapSpottingRowToSpottedCar } from './spottings'
+import { uploadSpottingPhoto } from './storage'
+import { insertSpottingPhotoRow } from './spottingPhotos'
 
 export type ProfileRow = ProfileForLimit & {
   email?: string | null
@@ -68,11 +70,13 @@ export async function processSpot(params: ProcessSpotParams): Promise<ProcessSpo
 
   const xpAmount = source === 'camera' ? identifyResult.xp.total_xp : 0
 
+  const allPhotoUris = additionalPhotoUris && additionalPhotoUris.length > 0 ? [photoUri, ...additionalPhotoUris] : [photoUri]
+
   const inserted = await insertSpotting({
     user_id: profile.id,
     source,
-    photo_uri: photoUri,
-    photo_uris: additionalPhotoUris && additionalPhotoUris.length > 0 ? [photoUri, ...additionalPhotoUris] : [photoUri],
+    photo_uri: '',
+    photo_uris: [],
     make,
     model,
     trim,
@@ -94,6 +98,31 @@ export async function processSpot(params: ProcessSpotParams): Promise<ProcessSpo
   })
 
   if (!inserted) return { status: 'error', message: 'Failed to save spot.' }
+
+  const spottingId = inserted.id as string
+  const userId = profile.id
+  let firstStoragePath: string | null = null
+
+  for (let i = 0; i < allPhotoUris.length; i++) {
+    const uri = allPhotoUris[i]
+    const ext = uri.split('.').pop()?.toLowerCase() || 'jpg'
+    const mimeType = ext === 'png' ? 'image/png' : 'image/jpeg'
+    const uploadResult = await uploadSpottingPhoto(userId, spottingId, { uri, mimeType }, ext)
+    if (uploadResult) {
+      if (i === 0) firstStoragePath = uploadResult.storagePath
+      await insertSpottingPhotoRow({
+        spottingId,
+        userId,
+        storagePath: uploadResult.storagePath,
+        isPrimary: i === 0,
+        sortOrder: i,
+      })
+    }
+  }
+
+  if (firstStoragePath) {
+    await supabase.from('spottings').update({ photo_uri: firstStoragePath }).eq('id', spottingId)
+  }
 
   const nowIso = new Date().toISOString()
   const prevLast = profile.last_spotted_at ? new Date(profile.last_spotted_at) : null
