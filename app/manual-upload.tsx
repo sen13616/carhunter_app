@@ -6,11 +6,14 @@ import { Ionicons } from '@expo/vector-icons'
 import * as ImagePicker from 'expo-image-picker'
 import { identifyCar } from '../services/carIdentifier'
 import { useStore } from '../store/useStore'
+import { useAuth } from '../contexts/auth'
 import { IdentifyResponse, SpottedCar } from '../types'
 import { useTheme } from '../contexts/theme'
 
 export default function ManualUploadScreen() {
   const { colors, rarityColors } = useTheme()
+  const { session } = useAuth()
+  const userId = session?.user?.id ?? 'demo_user_001'
   const router  = useRouter()
   const insets  = useSafeAreaInsets()
   const addSpot = useStore((s) => s.addSpot)
@@ -29,13 +32,14 @@ export default function ManualUploadScreen() {
       quality: 1,
     })
     if (result.canceled) return
-    const uri = result.assets[0].uri
+    const asset = result.assets[0]
+    const uri = asset.uri
     setImageUri(uri)
     setIsLoading(true)
     setIdentifyResult(null)
     setError(null)
     try {
-      const res = await identifyCar(uri)
+      const res = await identifyCar(uri, { userId, mimeType: asset.mimeType ?? 'image/jpeg' })
       setIdentifyResult(res)
     } catch {
       setError('Could not identify the car. Please try a different photo.')

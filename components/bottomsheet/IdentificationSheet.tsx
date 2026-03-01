@@ -148,7 +148,8 @@ export function IdentificationSheet({ visible, onClose, photoUri, identifyResult
           return
         }
         if (result.status === 'limit') {
-          showToast(`Daily limit reached (${result.used}/${result.limit})`)
+          useStore.getState().setPaywallLimitInfo({ used: result.used, limit: result.limit })
+          useStore.getState().setShowPaywall(true)
           return
         }
         if (result.status === 'duplicate') {

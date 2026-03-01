@@ -1,10 +1,23 @@
 import { supabase } from '../../lib/supabase'
 import type { IdentifyResponse, SpottedCar } from '../../types'
 import { createCarKey } from '../../utils/carKey'
-import { canUserSpot, type ProfileForLimit } from './dailyLimit'
+import { deriveEntitlements } from '../entitlements'
+import { tryConsumeSpot } from './quota'
 import { insertSpotting, isDuplicateSpotting, mapSpottingRowToSpottedCar } from './spottings'
 import { uploadSpottingPhoto } from './storage'
 import { insertSpottingPhotoRow } from './spottingPhotos'
+
+export type ProfileForLimit = {
+  id: string
+  is_subscribed?: boolean | null
+  subscription?: string | null
+  streak_count?: number | null
+  extra_spots?: number | null
+  daily_spots_used?: number | null
+  daily_spots_date?: string | null
+  last_spotted_at?: string | null
+  [key: string]: unknown
+}
 
 export type ProfileRow = ProfileForLimit & {
   email?: string | null
@@ -52,9 +65,19 @@ export type ProcessSpotResult =
 export async function processSpot(params: ProcessSpotParams): Promise<ProcessSpotResult> {
   const { profile, source, photoUri, additionalPhotoUris, identifyResult, edits, location, notes } = params
 
-  const quota = await canUserSpot(profile)
-  if (!quota.allowed) {
-    return { status: 'limit', limit: quota.limit, used: quota.used, remaining: quota.remaining }
+  const entitlements = deriveEntitlements(profile)
+  let usedAfterConsume = typeof profile.daily_spots_used === 'number' ? profile.daily_spots_used : 0
+  if (!entitlements.isSubscribed) {
+    const consume = await tryConsumeSpot(profile.id, entitlements.dailyLimit)
+    if (!consume.allowed) {
+      return {
+        status: 'limit',
+        limit: entitlements.dailyLimit,
+        used: consume.used,
+        remaining: Math.max(0, entitlements.dailyLimit - consume.used),
+      }
+    }
+    usedAfterConsume = consume.used
   }
 
   const make = edits?.make ?? identifyResult.identification.make
@@ -68,7 +91,12 @@ export async function processSpot(params: ProcessSpotParams): Promise<ProcessSpo
   const dup = await isDuplicateSpotting({ userId: profile.id, make, model, trim, year, colour })
   if (dup) return { status: 'duplicate' }
 
-  const xpAmount = source === 'camera' ? identifyResult.xp.total_xp : 0
+  const baseXp = source === 'camera' ? identifyResult.xp.total_xp : 0
+  const streakMultiplier = entitlements.streakMultiplierEnabled ? entitlements.streakMultiplier : 1
+  const xpAmount = Math.round(baseXp * streakMultiplier)
+  const xpBreakdown = entitlements.streakMultiplierEnabled && streakMultiplier > 1
+    ? `${identifyResult.xp.breakdown ?? ''} × streak ${streakMultiplier}x`.trim()
+    : (identifyResult.xp.breakdown ?? null)
 
   const allPhotoUris = additionalPhotoUris && additionalPhotoUris.length > 0 ? [photoUri, ...additionalPhotoUris] : [photoUri]
 
@@ -92,8 +120,8 @@ export async function processSpot(params: ProcessSpotParams): Promise<ProcessSpo
     base_price_usd: identifyResult.specs.base_price_usd,
     xp_base: identifyResult.xp.base_xp,
     multipliers: identifyResult.xp.multipliers,
-    xp_total: identifyResult.xp.total_xp,
-    xp_breakdown: identifyResult.xp.breakdown,
+    xp_total: xpAmount,
+    xp_breakdown: xpBreakdown,
     car_key: carKey,
   })
 
@@ -136,13 +164,11 @@ export async function processSpot(params: ProcessSpotParams): Promise<ProcessSpo
   else nextStreak = 1
 
   const prevXp = typeof profile.xp === 'number' ? profile.xp : 0
-  const prevUsed = typeof quota.profile.daily_spots_used === 'number' ? quota.profile.daily_spots_used : 0
 
   const { data: updated, error: updateErr } = await supabase
     .from('profiles')
     .update({
       xp: prevXp + xpAmount,
-      daily_spots_used: prevUsed + 1,
       streak_count: nextStreak,
       last_spotted_at: nowIso,
     })
@@ -153,7 +179,7 @@ export async function processSpot(params: ProcessSpotParams): Promise<ProcessSpo
   const updatedProfile = (updateErr || !updated) ? ({
     ...profile,
     xp: prevXp + xpAmount,
-    daily_spots_used: prevUsed + 1,
+    daily_spots_used: usedAfterConsume,
     streak_count: nextStreak,
     last_spotted_at: nowIso,
   } as ProfileRow) : (updated as ProfileRow)

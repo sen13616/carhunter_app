@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "CarSpotter",
-    "slug": "car-spotter-ai",
+    "name": "CarHunter",
+    "slug": "carhunter",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -16,16 +16,23 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.carspotterai"
+      "bundleIdentifier": "com.anonymous.carspotterai",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Allow camera access to identify cars",
+        "NSPhotoLibraryUsageDescription": "Allow access to your photos to upload car images",
+        "NSPhotoLibraryAddUsageDescription": "Allow saving photos of identified cars"
+      }
     },
     "android": {
       "adaptiveIcon": {
-      "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#060d1f"
       },
       "permissions": [
         "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_EXTERNAL_STORAGE"
       ],
       "package": "com.anonymous.carspotterai"
     },
@@ -49,6 +56,11 @@
           "photosPermission": "Allow CarSpotter to access your photos"
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "56f517f2-1d7d-4ac7-b078-c934c7060183"
+      }
+    }
   }
 }

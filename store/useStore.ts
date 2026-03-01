@@ -36,6 +36,11 @@ interface StoreState {
 
   settings: Settings
   setSetting: <K extends keyof Settings>(key: K, value: Settings[K]) => void
+
+  showPaywall: boolean
+  setShowPaywall: (v: boolean) => void
+  paywallLimitInfo: { used: number; limit: number } | null
+  setPaywallLimitInfo: (info: { used: number; limit: number } | null) => void
 }
 
 export const useStore = create<StoreState>()(
@@ -63,6 +68,11 @@ export const useStore = create<StoreState>()(
       settings: DEFAULT_SETTINGS,
       setSetting: (key, value) =>
         set((state) => ({ settings: { ...state.settings, [key]: value } })),
+
+      showPaywall: false,
+      setShowPaywall: (v) => set({ showPaywall: v, ...(v ? {} : { paywallLimitInfo: null as { used: number; limit: number } | null }) }),
+      paywallLimitInfo: null,
+      setPaywallLimitInfo: (info) => set({ paywallLimitInfo: info }),
     }),
     {
       name: 'carspotter-storage',

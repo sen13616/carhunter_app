@@ -7,6 +7,7 @@ import { useStore } from '../../store/useStore'
 import { useTheme } from '../../contexts/theme'
 import { RARITY_ORDER } from '../../constants/theme'
 import { RankCard } from '../../components/dashboard/RankCard'
+import { StreakCard } from '../../components/dashboard/StreakCard'
 import { DistributionRow } from '../../components/stats/DistributionRow'
 
 export default function StatsScreen() {
@@ -44,6 +45,8 @@ export default function StatsScreen() {
         <View style={{ marginBottom: 24 }}>
           <RankCard />
         </View>
+
+        <StreakCard />
 
         <Text style={{ color: colors.text, fontSize: 18, fontWeight: 'bold', marginBottom: 16 }}>Make Distribution</Text>
         {topMakes.length === 0 ? (

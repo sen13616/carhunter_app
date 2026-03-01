@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { useStore } from '../store/useStore'
 import { fetchSpottingsForUser } from '../services/supabase/spottings'
 import { fetchProfile, profileHasRequiredFields } from '../services/supabase/profile'
+import { setRevenueCatUserId, getCustomerInfoAndSync, addRevenueCatListener } from '../services/revenuecat'
 import type { User } from '../types'
 
 const EMPTY_USER: User = {
@@ -101,16 +102,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session: s } }) => {
-      setSession(s)
-      hydrate(s).finally(() => setLoading(false))
+    let mounted = true
+    const initAuth = async () => {
+      const { data: { session: s }, error } = await supabase.auth.getSession()
+      if (__DEV__) {
+        console.log('[Auth] getSession:', s ? `session present (user ${s.user?.id?.slice(0, 8)}...)` : 'null', error ? `error=${error.message}` : '')
+        if (!s) {
+          try {
+            const keys = await AsyncStorage.getAllKeys()
+            const authKeys = keys.filter((k) => k.includes('supabase') || k.includes('auth'))
+            console.log('[Auth] AsyncStorage auth-related keys:', authKeys.length, authKeys.slice(0, 5))
+          } catch (e) {
+            console.warn('[Auth] AsyncStorage getAllKeys failed', e)
+          }
+        }
+      }
+      if (mounted) {
+        setSession(s)
+        await hydrate(s)
+      }
+      setLoading(false)
+    }
+    initAuth()
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, s) => {
+      if (__DEV__) console.log('[Auth] onAuthStateChange:', event, s ? `session (user ${s.user?.id?.slice(0, 8)}...)` : 'null')
+      if (mounted) {
+        setSession(s)
+        hydrate(s)
+      }
     })
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
-      setSession(s)
-      hydrate(s)
-    })
-    return () => subscription.unsubscribe()
+    return () => {
+      mounted = false
+      subscription.unsubscribe()
+    }
   }, [hydrate])
+
+  useEffect(() => {
+    const uid = session?.user?.id
+    if (!uid) return
+    setRevenueCatUserId(uid).catch(() => {})
+    getCustomerInfoAndSync(uid).catch(() => {})
+    const remove = addRevenueCatListener(uid, () => {
+      hydrate(session)
+    })
+    return () => remove()
+  }, [session?.user?.id, session, hydrate])
 
   const refreshProfile = useCallback(async (): Promise<boolean> => {
     const s = session

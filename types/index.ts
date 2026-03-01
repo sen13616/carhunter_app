@@ -85,9 +85,11 @@ export interface ProfileRow {
   last_spotted_at?: string | null
   rank_title?: string | null
   daily_spots_used?: number | null
+  daily_spots_date?: string | null
   extra_spots?: number | null
   plan?: string | null
   is_subscribed?: boolean | null
+  subscription?: string | null
 }
 
 export interface Settings { cameraGrid: boolean; notifications: boolean; darkMode: boolean; garageViewMode: 'list' | 'card' }

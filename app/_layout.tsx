@@ -1,10 +1,14 @@
 import React, { useEffect } from 'react'
 import { Stack, useRouter, useSegments } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
+import { View } from 'react-native'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { AuthProvider, useAuth } from '../contexts/auth'
 import { ThemeProvider, useTheme } from '../contexts/theme'
 import { runSupabaseDiagnostics } from '../lib/supabase'
+import RevenueCatInit from '../components/RevenueCatInit'
+import { PaywallModal } from '../components/paywall/PaywallModal'
+import { useStore } from '../store/useStore'
 
 function StatusBarThemed() {
   const { themeId } = useTheme()
@@ -51,6 +55,7 @@ export default function RootLayout() {
       <ThemeProvider>
         <GestureHandlerRootView style={{ flex: 1 }}>
           <SupabaseDiagnostics />
+          <RevenueCatInit />
           <StatusBarThemed />
           <AuthGate />
           <RootLayoutNav />
@@ -60,8 +65,22 @@ export default function RootLayout() {
   )
 }
 
+function GlobalPaywall() {
+  const showPaywall = useStore((s) => s.showPaywall)
+  const paywallLimitInfo = useStore((s) => s.paywallLimitInfo)
+  const setShowPaywall = useStore((s) => s.setShowPaywall)
+  return (
+    <PaywallModal
+      visible={showPaywall}
+      onClose={() => setShowPaywall(false)}
+      limitInfo={paywallLimitInfo ?? undefined}
+    />
+  )
+}
+
 function RootLayoutNav() {
   return (
+    <View style={{ flex: 1 }}>
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="auth" />
       <Stack.Screen name="profile-details" />
@@ -80,5 +99,7 @@ function RootLayoutNav() {
       <Stack.Screen name="user-profile" />
       <Stack.Screen name="manual-upload" />
     </Stack>
+    <GlobalPaywall />
+    </View>
   )
 }
