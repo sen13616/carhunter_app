@@ -1,5 +1,5 @@
 import { supabase } from '../../lib/supabase'
-import type { IdentifyResponse, SpottedCar } from '../../types'
+import type { IdentifyResponse, SpottedCar, ProfileRow } from '../../types'
 import { createCarKey } from '../../utils/carKey'
 import { deriveEntitlements } from '../entitlements'
 import { tryConsumeSpot } from './quota'
@@ -7,28 +7,7 @@ import { insertSpotting, isDuplicateSpotting, mapSpottingRowToSpottedCar } from 
 import { uploadSpottingPhoto } from './storage'
 import { insertSpottingPhotoRow } from './spottingPhotos'
 
-export type ProfileForLimit = {
-  id: string
-  is_subscribed?: boolean | null
-  subscription?: string | null
-  streak_count?: number | null
-  extra_spots?: number | null
-  daily_spots_used?: number | null
-  daily_spots_date?: string | null
-  last_spotted_at?: string | null
-  [key: string]: unknown
-}
-
-export type ProfileRow = ProfileForLimit & {
-  email?: string | null
-  xp?: number | null
-  level?: number | null
-  streak_count?: number | null
-  daily_spots_used?: number | null
-  extra_spots?: number | null
-  last_spotted_at?: string | null
-  plan?: string | null
-}
+export type { ProfileRow } from '../../types'
 
 function isSameLocalDay(a: Date, b: Date): boolean {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()

@@ -79,7 +79,7 @@ export default function SettingsScreen() {
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: colors.bg }}
-      contentContainerStyle={{ paddingTop: insets.top + 12, paddingHorizontal: 16, paddingBottom: 40 }}
+      contentContainerStyle={{ paddingTop: 16, paddingHorizontal: 16, paddingBottom: Math.max(insets.bottom, 8) + 32 }}
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 24 }}>
         <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 16 }}>
@@ -152,7 +152,7 @@ export default function SettingsScreen() {
           colors={colors}
           icon="information-circle-outline"
           iconBg={colors.primaryMuted}
-          title="About CarSpotter"
+          title="About CarHunter"
           subtitle="Version 1.0.0"
           right={<Ionicons name="chevron-forward" size={18} color={colors.textMuted} />}
           onPress={() => {}}
@@ -187,7 +187,7 @@ export default function SettingsScreen() {
       </TouchableOpacity>
 
       <Text style={{ color: colors.textMuted, fontSize: 12, textAlign: 'center', marginTop: 16 }}>
-        CarSpotter v1.0.0
+        CarHunter v1.0.0
       </Text>
     </ScrollView>
   )

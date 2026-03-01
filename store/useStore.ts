@@ -6,11 +6,10 @@ import { SpottedCar, User, Settings } from '../types'
 const DEFAULT_SETTINGS: Settings = {
   cameraGrid: true,
   notifications: true,
-  darkMode: true,
   garageViewMode: 'list',
 }
 
-const EMPTY_USER: User = {
+export const EMPTY_USER: User = {
   id: '',
   username: '',
   email: '',
@@ -75,7 +74,7 @@ export const useStore = create<StoreState>()(
       setPaywallLimitInfo: (info) => set({ paywallLimitInfo: info }),
     }),
     {
-      name: 'carspotter-storage',
+      name: 'carhunter-storage',
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({ settings: state.settings }),
       merge: (persistedState, currentState) => {

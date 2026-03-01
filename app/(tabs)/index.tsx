@@ -3,10 +3,9 @@ import { View, Text, TouchableOpacity, Dimensions, Animated, Image, Alert } from
 import { CameraView, Camera } from 'expo-camera'
 import * as ImagePicker from 'expo-image-picker'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { Ionicons } from '@expo/vector-icons'
 import { IdentificationSheet } from '../../components/bottomsheet/IdentificationSheet'
 import { CameraControls } from '../../components/camera/CameraControls'
-import { identifyCar } from '../../services/carIdentifier'
+import { identifyCar } from '../../services/api/carhunter'
 import { useStore } from '../../store/useStore'
 import { useAuth } from '../../contexts/auth'
 import { IdentifyResponse } from '../../types'
@@ -147,7 +146,7 @@ export default function SpotScreen() {
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       {/* Top bar */}
       <View style={{ position: 'absolute', top: 0, left: 0, right: 0, paddingTop: insets.top + 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, zIndex: 1 }}>
-        <Text style={{ color: colors.text, fontSize: 20, fontWeight: 'bold' }}>CARSPOTTER</Text>
+        <Text style={{ color: colors.text, fontSize: 20, fontWeight: 'bold' }}>CARHUNTER</Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           {/* Pill: "AI Ready" in normal mode, "Add Angles" in add angles mode */}
           <View style={{ flexDirection: 'row', alignItems: 'center', borderColor: colors.primary, borderWidth: 1, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 }}>
@@ -202,17 +201,6 @@ export default function SpotScreen() {
             disabled={isProcessing || (addAnglesMode && additionalPhotos.length >= MAX_ADDITIONAL_PHOTOS)}
           />
         </View>
-
-        {/* Upload — gallery fallback (e.g. simulator); hide in add-angles mode */}
-        {!addAnglesMode && (
-          <TouchableOpacity
-            onPress={handleUpload}
-            style={{ position: 'absolute', left: 24, top: (SHUTTER_SIZE - 44) / 2, flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, borderWidth: 1, borderColor: colors.border }}
-          >
-            <Ionicons name="images-outline" size={22} color={colors.primary} />
-            <Text style={{ color: colors.primary, fontWeight: '600', marginLeft: 8 }}>Upload</Text>
-          </TouchableOpacity>
-        )}
 
         {/* Add angles mode: Proceed button bottom-right */}
         {addAnglesMode && (

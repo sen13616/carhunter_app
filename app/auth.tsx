@@ -43,7 +43,7 @@ export default function AuthScreen() {
         <View style={{ width: 80, height: 80, backgroundColor: colors.surface, borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginBottom: 20 }}>
           <Ionicons name="car" size={40} color={colors.primary} />
         </View>
-        <Text style={{ color: colors.text, fontSize: 28, fontWeight: 'bold' }}>CarSpotter</Text>
+        <Text style={{ color: colors.text, fontSize: 28, fontWeight: 'bold' }}>CarHunter</Text>
         <Text style={{ color: colors.textMuted, fontSize: 16, marginTop: 4 }}>SPOT. IDENTIFY. COLLECT.</Text>
       </View>
 

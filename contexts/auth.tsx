@@ -2,24 +2,11 @@ import React, { createContext, useCallback, useContext, useEffect, useState } fr
 import type { Session } from '@supabase/supabase-js'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { supabase } from '../lib/supabase'
-import { useStore } from '../store/useStore'
+import { useStore, EMPTY_USER } from '../store/useStore'
 import { fetchSpottingsForUser } from '../services/supabase/spottings'
 import { fetchProfile, profileHasRequiredFields } from '../services/supabase/profile'
 import { setRevenueCatUserId, getCustomerInfoAndSync, addRevenueCatListener } from '../services/revenuecat'
 import type { User } from '../types'
-
-const EMPTY_USER: User = {
-  id: '',
-  username: '',
-  email: '',
-  fullName: undefined,
-  location: undefined,
-  bio: undefined,
-  avatarUrl: undefined,
-  totalXP: 0,
-  streak: 0,
-  lastSpotDate: '',
-}
 
 export type HydrateResult = { profileComplete: boolean }
 
@@ -171,7 +158,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await supabase.auth.signOut()
     setSession(null)
     setProfileCompleteState(null)
-    await AsyncStorage.clear()
     useStore.getState().clearSpots()
     useStore.getState().setUser(EMPTY_USER)
   }, [])

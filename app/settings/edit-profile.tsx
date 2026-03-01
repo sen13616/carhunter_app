@@ -143,7 +143,7 @@ export default function EditProfileScreen() {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, backgroundColor: colors.bg, justifyContent: 'center', alignItems: 'center', paddingTop: insets.top }}>
+      <View style={{ flex: 1, backgroundColor: colors.bg, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" color={colors.primary} />
         <Text style={{ color: colors.textMuted, marginTop: 12 }}>Loading profile…</Text>
       </View>
@@ -153,7 +153,7 @@ export default function EditProfileScreen() {
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: colors.bg }}
-      contentContainerStyle={{ paddingTop: insets.top + 12, paddingBottom: 48 }}
+      contentContainerStyle={{ paddingTop: 16, paddingBottom: Math.max(insets.bottom, 8) + 40 }}
       keyboardShouldPersistTaps="handled"
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, marginBottom: 28 }}>

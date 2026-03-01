@@ -19,10 +19,8 @@ import { useLegacyCarPhotoUrls } from '../../hooks/useLegacyCarPhotoUrls'
 import type { LegacyCar } from '../../types'
 
 const RARITY_OPTIONS = ['All', 'Legendary', 'Very Rare', 'Rare', 'Uncommon', 'Common'] as const
-const TYPE_OPTIONS   = ['All', 'Supercar', 'Sedan', 'SUV', 'Classic', 'Sports'] as const
 
 type RarityOption = typeof RARITY_OPTIONS[number]
-type TypeOption   = typeof TYPE_OPTIONS[number]
 type GarageTab    = 'garage' | 'legacy'
 type ViewMode     = 'list' | 'card'
 
@@ -291,20 +289,22 @@ function CardSwipeView({
         </Animated.View>
       </GestureDetector>
 
-      {/* ── Dot indicators ──────────────────────────────────────────── */}
-      <View style={{ flexDirection: 'row', gap: 6, justifyContent: 'center', marginTop: 16 }}>
-        {cars.map((_, i) => (
-          <View
-            key={i}
-            style={{
-              width: i === cardIndex ? 16 : 6,
-              height: 6,
-              borderRadius: 3,
-              backgroundColor: i === cardIndex ? colors.primary : colors.border,
-            }}
-          />
-        ))}
-      </View>
+      {/* ── Dot indicators (capped at 8 to prevent overflow) ────────── */}
+      {cars.length <= 8 && (
+        <View style={{ flexDirection: 'row', gap: 6, justifyContent: 'center', marginTop: 16 }}>
+          {cars.map((_, i) => (
+            <View
+              key={i}
+              style={{
+                width: i === cardIndex ? 16 : 6,
+                height: 6,
+                borderRadius: 3,
+                backgroundColor: i === cardIndex ? colors.primary : colors.border,
+              }}
+            />
+          ))}
+        </View>
+      )}
 
       {/* ── Counter ─────────────────────────────────────────────────── */}
       <Text style={{ color: colors.textMuted, fontSize: 13, marginTop: 8 }}>
@@ -329,22 +329,24 @@ export default function MyCarsScreen() {
   const [activeTab, setActiveTab]       = useState<GarageTab>('garage')
   const [searchQuery, setSearchQuery]   = useState('')
   const [rarityFilter, setRarityFilter] = useState<RarityOption>('All')
-  const [typeFilter, setTypeFilter]     = useState<TypeOption>('All')
   const [cardIndex, setCardIndex]       = useState(0)
   const [legacyCars, setLegacyCars]     = useState<LegacyCar[]>([])
+  const lastFetchedAt = useRef(0)
   const insets = useSafeAreaInsets()
   const router = useRouter()
 
-  // Garage = public.spottings; Legacy = public.legacy_cars: refetch on focus
+  // Garage = public.spottings; Legacy = public.legacy_cars: refetch on focus (skip if data is fresh within 30s)
   useFocusEffect(
     React.useCallback(() => {
       setActiveTab('garage')
       setCardIndex(0)
       const uid = session?.user?.id
-      if (uid) {
-        fetchUserSpottings(uid).then((list) => setSpots(list))
-        fetchLegacyCars(uid).then((list) => setLegacyCars(list))
-      }
+      if (!uid) return
+      const now = Date.now()
+      if (now - lastFetchedAt.current < 30_000) return
+      lastFetchedAt.current = now
+      fetchUserSpottings(uid).then((list) => setSpots(list))
+      fetchLegacyCars(uid).then((list) => setLegacyCars(list))
     }, [session?.user?.id, setSpots])
   )
 
@@ -358,8 +360,8 @@ export default function MyCarsScreen() {
 
   const filtered = useMemo(() => {
     return tabFiltered
-      .filter(c => rarityFilter === 'All' || c.rarity === rarityFilter)
-      .filter(c => `${c.prediction.make} ${c.prediction.model}`.toLowerCase().includes(searchQuery.toLowerCase()))
+      .filter((c) => rarityFilter === 'All' || c.rarity === rarityFilter)
+      .filter((c) => `${c.prediction.make} ${c.prediction.model}`.toLowerCase().includes(searchQuery.toLowerCase()))
   }, [tabFiltered, searchQuery, rarityFilter])
 
   const [displayedFiltered, setDisplayedFiltered] = useState<SpottedCar[]>([])
@@ -381,7 +383,7 @@ export default function MyCarsScreen() {
         listOpacity.value = withTiming(1, { duration: 150 })
       }
     })
-  }, [searchQuery, rarityFilter, typeFilter, activeTab])
+  }, [searchQuery, rarityFilter, activeTab])
 
   // Reset card index when filters change
   useEffect(() => {
@@ -488,13 +490,6 @@ export default function MyCarsScreen() {
                   options={RARITY_OPTIONS}
                   selected={rarityFilter}
                   onSelect={(v) => setRarityFilter(v as RarityOption)}
-                  colors={colors}
-                />
-                <DropdownPicker
-                  label="All Types"
-                  options={TYPE_OPTIONS}
-                  selected={typeFilter}
-                  onSelect={(v) => setTypeFilter(v as TypeOption)}
                   colors={colors}
                 />
               </View>

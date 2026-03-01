@@ -55,6 +55,7 @@ export interface SpottedCar {
   multipliers?: XpMultipliers
   xpBreakdown?: string
   totalXp?: number
+  carKey?: string
 }
 
 export interface UserStats { totalXP: number; streak: number; lastSpotDate: string }
@@ -92,7 +93,7 @@ export interface ProfileRow {
   subscription?: string | null
 }
 
-export interface Settings { cameraGrid: boolean; notifications: boolean; darkMode: boolean; garageViewMode: 'list' | 'card' }
+export interface Settings { cameraGrid: boolean; notifications: boolean; garageViewMode: 'list' | 'card' }
 
 /** Legacy car from public.legacy_cars (display + list). */
 export interface LegacyCar {

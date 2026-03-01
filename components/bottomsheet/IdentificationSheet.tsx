@@ -1,15 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Pressable, Modal, TextInput, KeyboardAvoidingView, Platform, Animated, Image } from 'react-native'
 import AnimatedReanimated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated'
-import { useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
-import { IdentifyResponse, SpottedCar } from '../../types'
+import { IdentifyResponse } from '../../types'
 import { useStore } from '../../store/useStore'
 import { useTheme } from '../../contexts/theme'
-import { processSpot, type ProfileRow } from '../../services/supabase/processSpot'
-import { supabase } from '../../lib/supabase'
-import { useCongratsStore } from '../../store/useCongratsStore'
-import { buildCongratsPayload } from '../../utils/buildCongratsPayload'
+import { useSaveSpot } from '../../hooks/useSaveSpot'
 
 interface IdentificationSheetProps {
   visible: boolean
@@ -23,9 +19,7 @@ interface IdentificationSheetProps {
 
 export function IdentificationSheet({ visible, onClose, photoUri, identifyResult, isLoading, additionalPhotos, onAddMorePhotos }: IdentificationSheetProps) {
   const { colors, rarityColors } = useTheme()
-  const router = useRouter()
-  const addSpot  = useStore((s) => s.addSpot)
-  const updateXP = useStore((s) => s.updateXP)
+  const { saveSpot } = useSaveSpot()
   const translateY = useSharedValue(600)
 
   // User-entered fields
@@ -45,12 +39,6 @@ export function IdentificationSheet({ visible, onClose, photoUri, identifyResult
   const toastOpacity    = useRef(new Animated.Value(0)).current
   const toastTranslateY = useRef(new Animated.Value(20)).current
   const toastTimer      = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  // XP float
-  const [xpFloatVisible, setXpFloatVisible] = useState(false)
-  const [xpLabel, setXpLabel]               = useState('')
-  const xpOpacity    = useRef(new Animated.Value(0)).current
-  const xpTranslateY = useRef(new Animated.Value(0)).current
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: translateY.value }]
@@ -107,105 +95,22 @@ export function IdentificationSheet({ visible, onClose, photoUri, identifyResult
 
   const handleSave = async () => {
     if (!identifyResult) return
-    const xpAmount = identifyResult.xp.total_xp
     const parsedYear = parseInt(editedYear, 10) || identifyResult.identification.year
-    const uid = useStore.getState().user.id
-
-    if (uid) {
-      const { data: profileRow } = await supabase.from('profiles').select('*').eq('id', uid).single()
-      if (profileRow) {
-        const result = await processSpot({
-          profile: profileRow as ProfileRow,
-          source: 'camera',
-          photoUri,
-          additionalPhotoUris: additionalPhotos.length > 0 ? additionalPhotos : undefined,
-          identifyResult,
-          edits: { make: editedMake, model: editedModel, trim: editedTrim, year: parsedYear },
-          location: location.trim() || undefined,
-          notes: notes.trim() || undefined,
-        })
-        if (result.status === 'success') {
-          addSpot(result.spot)
-          useStore.getState().setUser({
-            id: result.updatedProfile.id,
-            username: (result.updatedProfile as any).username ?? (result.updatedProfile as any).email ?? 'User',
-            email: (result.updatedProfile.email ?? '').toString(),
-            totalXP: typeof result.updatedProfile.xp === 'number' ? result.updatedProfile.xp : useStore.getState().user.totalXP,
-            streak: typeof result.updatedProfile.streak_count === 'number' ? result.updatedProfile.streak_count : useStore.getState().user.streak,
-            lastSpotDate: result.updatedProfile.last_spotted_at ? new Date(result.updatedProfile.last_spotted_at).toDateString() : useStore.getState().user.lastSpotDate,
-          })
-          const newTotalXp = typeof result.updatedProfile.xp === 'number' ? result.updatedProfile.xp : useStore.getState().user.totalXP
-          const payload = buildCongratsPayload({
-            spottingId: result.spot.id,
-            identifyResult,
-            edits: { make: editedMake, model: editedModel, trim: editedTrim, year: parsedYear },
-            gainedXp: result.gainedXp,
-            updatedProfileXp: newTotalXp,
-          })
-          useCongratsStore.getState().setPayload(payload)
-          onClose()
-          router.push('/post-spot')
-          return
-        }
-        if (result.status === 'limit') {
-          useStore.getState().setPaywallLimitInfo({ used: result.used, limit: result.limit })
-          useStore.getState().setShowPaywall(true)
-          return
-        }
-        if (result.status === 'duplicate') {
-          showToast('Already spotted this car')
-          return
-        }
-        if (result.status === 'error') {
-          showToast(result.message || 'Failed to save')
-          return
-        }
-      }
-    }
-
-    const car: SpottedCar = {
-      id: Date.now().toString(),
+    await saveSpot({
+      identifyResult,
       photoUri,
-      photoUris: [photoUri, ...additionalPhotos],
-      prediction: { make: editedMake, model: editedModel, year: parsedYear, confidence: identifyResult.identification.uncertain ? 50 : 95 },
-      allPredictions: [{ make: editedMake, model: editedModel, year: parsedYear, confidence: identifyResult.identification.uncertain ? 50 : 95 }],
-      carDetails: {
-        make: editedMake,
-        model: editedModel,
-        year: parsedYear,
-        horsepower: identifyResult.specs.horsepower,
-        engineType: identifyResult.specs.engine,
-        yearsOfProduction: '',
-        rarity: identifyResult.specs.rarity_tier,
+      additionalPhotos,
+      edits: { make: editedMake, model: editedModel, trim: editedTrim, year: parsedYear },
+      location,
+      notes,
+      onSuccess: onClose,
+      onDuplicate: () => showToast('Already spotted this car'),
+      onPaywall: (info) => {
+        useStore.getState().setPaywallLimitInfo(info)
+        useStore.getState().setShowPaywall(true)
       },
-      dateSpotted: new Date().toDateString(),
-      rarity: identifyResult.specs.rarity_tier,
-      source: 'camera',
-      location: location.trim() || undefined,
-      notes: notes.trim() || undefined,
-      trim: editedTrim,
-      colour: identifyResult.identification.colour,
-      uncertain: identifyResult.identification.uncertain,
-      horsepower: identifyResult.specs.horsepower,
-      engine: identifyResult.specs.engine,
-      zeroToHundred: identifyResult.specs.zero_to_100_kmh,
-      basePriceUsd: identifyResult.specs.base_price_usd,
-      baseXp: identifyResult.xp.base_xp,
-      multipliers: identifyResult.xp.multipliers,
-      xpBreakdown: identifyResult.xp.breakdown,
-      totalXp: xpAmount,
-    }
-    addSpot(car)
-    updateXP(xpAmount)
-    showToast(`${editedMake} ${editedModel}`)
-    setXpLabel(`+${xpAmount} XP`)
-    setXpFloatVisible(true)
-    xpOpacity.setValue(1)
-    xpTranslateY.setValue(0)
-    Animated.parallel([
-      Animated.timing(xpOpacity, { toValue: 0, duration: 800, useNativeDriver: true }),
-      Animated.timing(xpTranslateY, { toValue: -40, duration: 800, useNativeDriver: true }),
-    ]).start(() => setXpFloatVisible(false))
+      onError: (msg) => showToast(msg || 'Failed to save'),
+    })
   }
 
   const specCards = identifyResult ? [
@@ -271,20 +176,6 @@ export function IdentificationSheet({ visible, onClose, photoUri, identifyResult
                 </Animated.View>
               )}
 
-              {/* ── Floating XP indicator ───────────────────────────────── */}
-              {xpFloatVisible && (
-                <Animated.View
-                  pointerEvents="none"
-                  style={{
-                    position: 'absolute', bottom: 72, alignSelf: 'center',
-                    zIndex: 101, opacity: xpOpacity,
-                    transform: [{ translateY: xpTranslateY }],
-                  }}
-                >
-                  <Text style={{ color: colors.primary, fontSize: 22, fontWeight: 'bold' }}>{xpLabel}</Text>
-                </Animated.View>
-              )}
-
               <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
                 {/* ── Loading state ──────────────────────────────────────── */}
                 {isLoading ? (
@@ -310,7 +201,7 @@ export function IdentificationSheet({ visible, onClose, photoUri, identifyResult
                         <View style={{ position: 'absolute', bottom: 8, right: 8, flexDirection: 'row', alignItems: 'center' }}>
                           {additionalPhotos.slice(0, 3).map((uri, i) => (
                             <Image
-                              key={i}
+                              key={uri}
                               source={{ uri }}
                               style={{
                                 width: 44, height: 44, borderRadius: 8,
@@ -505,8 +396,8 @@ export function IdentificationSheet({ visible, onClose, photoUri, identifyResult
                     {/* ── 10. Additional photos strip ────────────────────── */}
                     {additionalPhotos.length > 0 && (
                       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
-                        {additionalPhotos.map((uri, i) => (
-                          <Image key={i} source={{ uri }} style={{ width: 80, height: 80, borderRadius: 10, marginRight: 8 }} />
+                        {additionalPhotos.map((uri) => (
+                          <Image key={uri} source={{ uri }} style={{ width: 80, height: 80, borderRadius: 10, marginRight: 8 }} />
                         ))}
                       </ScrollView>
                     )}

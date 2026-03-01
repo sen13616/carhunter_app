@@ -13,7 +13,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   },
 });
 
-/** Run once on app start to verify Supabase client and network. */
+/** Run once on app start to verify Supabase client and network. Logs to local console only (no remote logging). */
 let diagnosticsRun = false
 export async function runSupabaseDiagnostics(): Promise<void> {
   if (diagnosticsRun) return

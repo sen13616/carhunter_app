@@ -16,7 +16,7 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.carspotterai",
+      "bundleIdentifier": "com.anonymous.carhunterai",
       "infoPlist": {
         "NSCameraUsageDescription": "Allow camera access to identify cars",
         "NSPhotoLibraryUsageDescription": "Allow access to your photos to upload car images",
@@ -34,7 +34,7 @@
         "android.permission.READ_MEDIA_IMAGES",
         "android.permission.READ_EXTERNAL_STORAGE"
       ],
-      "package": "com.anonymous.carspotterai"
+      "package": "com.anonymous.carhunterai"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -47,13 +47,13 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow CarSpotter to use your camera"
+          "cameraPermission": "Allow CarHunter to use your camera"
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow CarSpotter to access your photos"
+          "photosPermission": "Allow CarHunter to access your photos"
         }
       ]
     ],

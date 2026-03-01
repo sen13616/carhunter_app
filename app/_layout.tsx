@@ -15,6 +15,7 @@ function StatusBarThemed() {
   return <StatusBar style={themeId === 'light' ? 'dark' : 'light'} />
 }
 
+/** Redirects to auth / loading / profile-details / (tabs) based on session and profile state. */
 function AuthGate() {
   const router = useRouter()
   const segments = useSegments() as string[]
@@ -27,7 +28,6 @@ function AuthGate() {
       if (top !== 'auth') router.replace('/auth')
       return
     }
-    if (!session) return
     if (profileComplete === null) {
       if (top !== 'loading') router.replace('/loading')
       return

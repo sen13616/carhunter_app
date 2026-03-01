@@ -19,7 +19,7 @@ export default function PaywallScreen() {
           <Ionicons name="trophy" size={40} color={colors.primaryText} />
         </View>
 
-        <Text style={{ color: colors.text, fontSize: 24, fontWeight: 'bold', marginBottom: 32 }}>Unlock CarSpotter Pro</Text>
+        <Text style={{ color: colors.text, fontSize: 24, fontWeight: 'bold', marginBottom: 32 }}>Unlock CarHunter Pro</Text>
 
         <View style={{ width: '100%', marginBottom: 16 }}>
           <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 20, marginBottom: 16 }}>

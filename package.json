@@ -1,11 +1,11 @@
 {
-  "name": "car-spotter-ai",
+  "name": "car-hunter-ai",
   "version": "1.0.0",
   "main": "expo-router/entry",
   "scripts": {
     "start": "expo start",
-    "android": "expo run:android",
-    "ios": "expo run:ios",
+    "ios": "expo start --ios",
+    "android": "expo start --android",
     "web": "expo start --web"
   },
   "dependencies": {
@@ -16,7 +16,6 @@
     "expo-asset": "~11.0.0",
     "expo-camera": "~16.0.18",
     "expo-constants": "~17.0.0",
-    "expo-dev-client": "~5.0.20",
     "expo-font": "~12.0.0",
     "expo-image-picker": "~16.0.6",
     "expo-linking": "~7.0.0",
