@@ -1,7 +1,13 @@
 import React from 'react'
 import { View, TouchableOpacity } from 'react-native'
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated'
-import { useTheme } from '../../contexts/theme'
+import * as Haptics from 'expo-haptics'
+
+// iOS-style shutter button dimensions
+const BUTTON_SIZE = 80   // outer ring outer diameter
+const RING_BORDER = 3    // ring border width
+const GAP = 5            // gap between ring inner edge and inner circle
+const INNER_SIZE = BUTTON_SIZE - RING_BORDER * 2 - GAP * 2  // = 64
 
 interface CameraControlsProps {
   onPress: () => void
@@ -9,37 +15,40 @@ interface CameraControlsProps {
 }
 
 export function CameraControls({ onPress, disabled }: CameraControlsProps) {
-  const { colors } = useTheme()
   const scale = useSharedValue(1)
-  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }))
+  const innerAnimStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }))
 
   return (
-    <Animated.View style={[animStyle, { opacity: disabled ? 0.4 : 1 }]}>
+    <View style={{ opacity: disabled ? 0.4 : 1 }}>
       <TouchableOpacity
-        onPress={onPress}
-        onPressIn={() => { scale.value = withSpring(0.9, { damping: 8, stiffness: 300 }) }}
-        onPressOut={() => { scale.value = withSpring(1, { damping: 8, stiffness: 300 }) }}
+        activeOpacity={1}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+          onPress()
+        }}
+        onPressIn={() => { scale.value = withSpring(0.88, { damping: 10, stiffness: 400 }) }}
+        onPressOut={() => { scale.value = withSpring(1.0, { damping: 10, stiffness: 400 }) }}
         disabled={disabled}
         style={{
-          width: 80,
-          height: 80,
-          borderRadius: 40,
-          borderWidth: 4,
-          borderColor: colors.text,
+          width: BUTTON_SIZE,
+          height: BUTTON_SIZE,
+          borderRadius: BUTTON_SIZE / 2,
+          borderWidth: RING_BORDER,
+          borderColor: 'white',
+          backgroundColor: 'transparent',
           justifyContent: 'center',
           alignItems: 'center',
-          backgroundColor: 'transparent'
         }}
       >
-        <View
-          style={{
-            width: 68,
-            height: 68,
-            borderRadius: 34,
-            backgroundColor: disabled ? colors.border : colors.surface
-          }}
+        <Animated.View
+          style={[{
+            width: INNER_SIZE,
+            height: INNER_SIZE,
+            borderRadius: INNER_SIZE / 2,
+            backgroundColor: 'white',
+          }, innerAnimStyle]}
         />
       </TouchableOpacity>
-    </Animated.View>
+    </View>
   )
 }

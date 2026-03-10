@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { View, Text, ScrollView, Pressable } from 'react-native'
 import { useRouter } from 'expo-router'
+import * as Haptics from 'expo-haptics'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useCongratsStore } from '../store/useCongratsStore'
 import { useTheme } from '../contexts/theme'
@@ -18,6 +19,7 @@ export default function PostSpotScreen() {
   const clearPayload = useCongratsStore((s) => s.clearPayload)
 
   const [visiblePillCount, setVisiblePillCount] = useState(0)
+  const [displayedTotalXp, setDisplayedTotalXp] = useState(0)
   const scrollRef = useRef<ScrollView>(null)
   const userHasScrolled = useRef(false)
   const totalPills = payload ? payload.xpItems.length + 1 : 0
@@ -25,6 +27,7 @@ export default function PostSpotScreen() {
   useEffect(() => {
     if (!payload || totalPills === 0) return
     setVisiblePillCount(0)
+    setDisplayedTotalXp(0)
     userHasScrolled.current = false
     let n = 0
     const id = setInterval(() => {
@@ -34,6 +37,30 @@ export default function PostSpotScreen() {
     }, REVEAL_INTERVAL_MS)
     return () => clearInterval(id)
   }, [payload?.spottingId, totalPills])
+
+  // Haptic on each pill reveal
+  useEffect(() => {
+    if (visiblePillCount > 0) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+    }
+  }, [visiblePillCount])
+
+  // Count-up the total XP number once the total pill becomes visible
+  const totalXpPillVisible = payload != null && visiblePillCount > (payload?.xpItems.length ?? 0)
+  useEffect(() => {
+    if (!totalXpPillVisible || !payload) return
+    const target = payload.totalXpEarned
+    const DURATION = 1200
+    const startTime = Date.now()
+    const timer = setInterval(() => {
+      const elapsed = Date.now() - startTime
+      const progress = Math.min(elapsed / DURATION, 1)
+      const eased = progress * (2 - progress) // ease-out quad
+      setDisplayedTotalXp(Math.round(target * eased))
+      if (progress >= 1) clearInterval(timer)
+    }, 16)
+    return () => clearInterval(timer)
+  }, [totalXpPillVisible, payload?.spottingId])
 
   useEffect(() => {
     if (!payload || userHasScrolled.current) return
@@ -89,7 +116,7 @@ export default function PostSpotScreen() {
         ))}
         <XpPill
           label="Total XP earned"
-          xp={payload.totalXpEarned}
+          xp={displayedTotalXp}
           visible={visiblePillCount > payload.xpItems.length}
           colors={colors}
         />

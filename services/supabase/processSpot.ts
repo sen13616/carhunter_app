@@ -90,7 +90,7 @@ export async function processSpot(params: ProcessSpotParams): Promise<ProcessSpo
     year,
     colour,
     rarity: identifyResult.specs.rarity_tier,
-    location: location?.trim() ? location.trim() : null,
+    location_name: location?.trim() ? location.trim() : null,
     notes: notes?.trim() ? notes.trim() : null,
     uncertain: identifyResult.identification.uncertain,
     horsepower: identifyResult.specs.horsepower,
@@ -109,6 +109,7 @@ export async function processSpot(params: ProcessSpotParams): Promise<ProcessSpo
   const spottingId = inserted.id as string
   const userId = profile.id
   let firstStoragePath: string | null = null
+  const allStoragePaths: string[] = []
 
   for (let i = 0; i < allPhotoUris.length; i++) {
     const uri = allPhotoUris[i]
@@ -117,6 +118,7 @@ export async function processSpot(params: ProcessSpotParams): Promise<ProcessSpo
     const uploadResult = await uploadSpottingPhoto(userId, spottingId, { uri, mimeType }, ext)
     if (uploadResult) {
       if (i === 0) firstStoragePath = uploadResult.storagePath
+      allStoragePaths.push(uploadResult.storagePath)
       await insertSpottingPhotoRow({
         spottingId,
         userId,
@@ -128,7 +130,9 @@ export async function processSpot(params: ProcessSpotParams): Promise<ProcessSpo
   }
 
   if (firstStoragePath) {
-    await supabase.from('spottings').update({ photo_uri: firstStoragePath }).eq('id', spottingId)
+    await supabase.from('spottings').update({ photo_uri: firstStoragePath, photo_uris: allStoragePaths }).eq('id', spottingId)
+    inserted.photo_uri = firstStoragePath
+    inserted.photo_uris = allStoragePaths
   }
 
   const nowIso = new Date().toISOString()

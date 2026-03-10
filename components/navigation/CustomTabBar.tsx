@@ -1,6 +1,8 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { View, Text, Pressable, Platform } from 'react-native'
+import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated'
 import { Ionicons } from '@expo/vector-icons'
+import * as Haptics from 'expo-haptics'
 import { useTheme } from '../../contexts/theme'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
@@ -9,14 +11,67 @@ export interface CustomTabBarProps {
   navigation: { emit: (opts: unknown) => unknown; navigate: (name: string, params?: object) => void }
 }
 
-const TAB_CONFIG: Record<string, { icon: keyof typeof Ionicons.glyphMap; label: string }> = {
-  stats: { icon: 'bar-chart', label: 'Dashboard' },
-  index: { icon: 'scan', label: 'Spot' },
-  'my-cars': { icon: 'car-sport', label: 'Garage' },
+const TAB_CONFIG: Record<string, { icon: keyof typeof Ionicons.glyphMap; iconOutline: keyof typeof Ionicons.glyphMap; label: string }> = {
+  stats:    { icon: 'bar-chart',  iconOutline: 'bar-chart-outline',  label: 'Dashboard' },
+  index:    { icon: 'scan',       iconOutline: 'scan',               label: 'Spot' },
+  'my-cars': { icon: 'car-sport', iconOutline: 'car-sport-outline',  label: 'Garage' },
 }
 
 // Render order: Dashboard (stats) | Spot (index) | Garage (my-cars)
 const ROUTE_ORDER = ['stats', 'index', 'my-cars'] as const
+
+// ── Regular tab item (Dashboard / Garage) with animated active indicator ──
+interface TabBarItemProps {
+  route: { key: string; name: string; params?: object }
+  isFocused: boolean
+  onPress: () => void
+  colors: ReturnType<typeof useTheme>['colors']
+}
+
+function TabBarItem({ route, isFocused, onPress, colors }: TabBarItemProps) {
+  const config = TAB_CONFIG[route.name] ?? { icon: 'ellipse', iconOutline: 'ellipse-outline', label: route.name }
+  const indicatorOpacity = useSharedValue(isFocused ? 1 : 0)
+
+  useEffect(() => {
+    indicatorOpacity.value = withTiming(isFocused ? 1 : 0, { duration: 200 })
+  }, [isFocused])
+
+  const indicatorStyle = useAnimatedStyle(() => ({ opacity: indicatorOpacity.value }))
+
+  return (
+    <Pressable
+      key={route.key}
+      onPress={onPress}
+      style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 4 }}
+    >
+      <Ionicons
+        name={isFocused ? config.icon : config.iconOutline}
+        size={24}
+        color={isFocused ? colors.tabIconActive : colors.tabIcon}
+        style={{ marginBottom: 4 }}
+      />
+      <Text
+        style={{
+          fontSize: 12,
+          fontWeight: isFocused ? '700' : '400',
+          color: isFocused ? colors.tabIconActive : colors.tabIcon,
+        }}
+      >
+        {config.label}
+      </Text>
+      <Animated.View
+        style={[{
+          width: '70%',
+          maxWidth: 48,
+          height: 2.5,
+          borderRadius: 1.25,
+          backgroundColor: colors.tabIconActive,
+          marginTop: 2,
+        }, indicatorStyle]}
+      />
+    </Pressable>
+  )
+}
 
 export function CustomTabBar({ state, navigation }: CustomTabBarProps) {
   const { colors } = useTheme()
@@ -38,12 +93,12 @@ export function CustomTabBar({ state, navigation }: CustomTabBarProps) {
         height: 88 + Math.max(insets.bottom, 10),
       }}
     >
-      {routesInOrder.map((route, orderIndex) => {
-        const config = TAB_CONFIG[route.name] ?? { icon: 'ellipse', label: route.name }
+      {routesInOrder.map((route) => {
         const isFocused = state.routes[state.index]?.key === route.key
         const isSpot = route.name === 'index'
 
         const onPress = () => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
           const event = navigation.emit({
             type: 'tabPress',
             target: route.key,
@@ -82,7 +137,7 @@ export function CustomTabBar({ state, navigation }: CustomTabBarProps) {
                   color: isFocused ? colors.tabIconActive : colors.tabIcon,
                 }}
               >
-                {config.label}
+                {TAB_CONFIG['index'].label}
               </Text>
               {isFocused && (
                 <View
@@ -100,39 +155,13 @@ export function CustomTabBar({ state, navigation }: CustomTabBarProps) {
         }
 
         return (
-          <Pressable
+          <TabBarItem
             key={route.key}
+            route={route}
+            isFocused={isFocused}
             onPress={onPress}
-            style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 4 }}
-          >
-            <Ionicons
-              name={config.icon}
-              size={24}
-              color={isFocused ? colors.tabIconActive : colors.tabIcon}
-              style={{ marginBottom: 4 }}
-            />
-            <Text
-              style={{
-                fontSize: 12,
-                fontWeight: isFocused ? '700' : '400',
-                color: isFocused ? colors.tabIconActive : colors.tabIcon,
-              }}
-            >
-              {config.label}
-            </Text>
-            {isFocused && (
-              <View
-                style={{
-                  width: '70%',
-                  maxWidth: 48,
-                  height: 2.5,
-                  borderRadius: 1.25,
-                  backgroundColor: colors.tabIconActive,
-                  marginTop: 2,
-                }}
-              />
-            )}
-          </Pressable>
+            colors={colors}
+          />
         )
       })}
     </View>

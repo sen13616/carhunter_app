@@ -10,7 +10,7 @@ import { useAuth } from '../contexts/auth'
 import { SpottedCar } from '../types'
 import { useSpottingPhotoGallery } from '../hooks/useSpottingPhotoUrls'
 import { addSpottingPhotos } from '../services/supabase/spottingPhotos'
-import { fetchSpottingById, mapSpottingRowToSpottedCar } from '../services/supabase/spottings'
+import { fetchSpottingById, mapSpottingRowToSpottedCar, deleteSpotting } from '../services/supabase/spottings'
 
 function getDisplayPhotoUri(car: SpottedCar, signedUrl: string | null): string | null {
   if (signedUrl) return signedUrl
@@ -29,6 +29,7 @@ export default function CarDetailScreen() {
   const insets = useSafeAreaInsets()
   const { width } = useWindowDimensions()
   const [galleryIndex, setGalleryIndex] = useState(0)
+  const [deleting, setDeleting] = useState(false)
 
   const removeSpot = useStore((s) => s.removeSpot)
   const initialCar: SpottedCar | null = carJson ? (JSON.parse(carJson) as SpottedCar) : null
@@ -71,9 +72,17 @@ export default function CarDetailScreen() {
     100
   )
 
-  const handleDelete = () => {
-    removeSpot(car.id)
-    router.back()
+  const handleDelete = async () => {
+    if (deleting) return
+    setDeleting(true)
+    try {
+      await deleteSpotting(car.id, userId)
+      removeSpot(car.id)
+      router.back()
+    } catch (e) {
+      setDeleting(false)
+      Alert.alert('Error', e instanceof Error ? e.message : 'Failed to delete spot. Please try again.')
+    }
   }
 
   const handleAddMorePhotos = async () => {
@@ -221,9 +230,10 @@ export default function CarDetailScreen() {
         {/* Delete */}
         <TouchableOpacity
           onPress={handleDelete}
-          style={{ marginTop: 32, borderWidth: 1, borderColor: colors.danger, borderRadius: 14, paddingVertical: 15, alignItems: 'center' }}
+          disabled={deleting}
+          style={{ marginTop: 32, borderWidth: 1, borderColor: colors.danger, borderRadius: 14, paddingVertical: 15, alignItems: 'center', opacity: deleting ? 0.5 : 1 }}
         >
-          <Text style={{ color: colors.danger, fontWeight: 'bold', fontSize: 15 }}>Remove from Garage</Text>
+          <Text style={{ color: colors.danger, fontWeight: 'bold', fontSize: 15 }}>{deleting ? 'Removing…' : 'Remove from Garage'}</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>

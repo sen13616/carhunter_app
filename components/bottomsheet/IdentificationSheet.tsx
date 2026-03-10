@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Pressable, Modal, TextInput, KeyboardAvoidingView, Platform, Animated, Image } from 'react-native'
 import AnimatedReanimated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated'
+import * as Haptics from 'expo-haptics'
 import { Ionicons } from '@expo/vector-icons'
 import { IdentifyResponse } from '../../types'
 import { useStore } from '../../store/useStore'
@@ -20,7 +21,9 @@ interface IdentificationSheetProps {
 export function IdentificationSheet({ visible, onClose, photoUri, identifyResult, isLoading, additionalPhotos, onAddMorePhotos }: IdentificationSheetProps) {
   const { colors, rarityColors } = useTheme()
   const { saveSpot } = useSaveSpot()
-  const translateY = useSharedValue(600)
+  const translateY      = useSharedValue(600)
+  const saveButtonScale = useSharedValue(1)
+  const rarityScale     = useSharedValue(0.6)
 
   // User-entered fields
   const [location, setLocation] = useState('')
@@ -40,9 +43,9 @@ export function IdentificationSheet({ visible, onClose, photoUri, identifyResult
   const toastTranslateY = useRef(new Animated.Value(20)).current
   const toastTimer      = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value }]
-  }))
+  const animatedStyle      = useAnimatedStyle(() => ({ transform: [{ translateY: translateY.value }] }))
+  const saveButtonAnimStyle = useAnimatedStyle(() => ({ transform: [{ scale: saveButtonScale.value }] }))
+  const rarityAnimStyle     = useAnimatedStyle(() => ({ transform: [{ scale: rarityScale.value }] }))
 
   // Open/close animation + field reset
   useEffect(() => {
@@ -62,13 +65,15 @@ export function IdentificationSheet({ visible, onClose, photoUri, identifyResult
     }
   }, [visible])
 
-  // Pre-fill edit fields when identification result arrives
+  // Pre-fill edit fields + animate rarity badge when identification result arrives
   useEffect(() => {
     if (!identifyResult) return
     setEditedMake(identifyResult.identification.make)
     setEditedModel(identifyResult.identification.model)
     setEditedTrim(identifyResult.identification.trim)
     setEditedYear(identifyResult.identification.year.toString())
+    rarityScale.value = 0.6
+    rarityScale.value = withSpring(1.0, { damping: 12, stiffness: 200 })
   }, [identifyResult])
 
   // Cleanup toast timer on unmount
@@ -95,6 +100,7 @@ export function IdentificationSheet({ visible, onClose, photoUri, identifyResult
 
   const handleSave = async () => {
     if (!identifyResult) return
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy)
     const parsedYear = parseInt(editedYear, 10) || identifyResult.identification.year
     await saveSpot({
       identifyResult,
@@ -238,15 +244,16 @@ export function IdentificationSheet({ visible, onClose, photoUri, identifyResult
                     )}
 
                     {/* ── 3. Rarity badge ────────────────────────────────── */}
-                    <View style={{
-                      alignSelf: 'flex-start',
-                      backgroundColor: rarityColors[identifyResult.specs.rarity_tier],
-                      borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4, marginTop: 14,
-                    }}>
-                      <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 12 }}>
-                        {identifyResult.specs.rarity_tier}
-                      </Text>
-                    </View>
+                    <AnimatedReanimated.View style={[{ alignSelf: 'flex-start' }, rarityAnimStyle]}>
+                      <View style={{
+                        backgroundColor: rarityColors[identifyResult.specs.rarity_tier],
+                        borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4, marginTop: 14,
+                      }}>
+                        <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 12 }}>
+                          {identifyResult.specs.rarity_tier}
+                        </Text>
+                      </View>
+                    </AnimatedReanimated.View>
 
                     {/* ── 4. Car identity ────────────────────────────────── */}
                     <Text style={{ color: colors.text, fontSize: 26, fontWeight: 'bold', marginTop: 8 }}>
@@ -416,9 +423,16 @@ export function IdentificationSheet({ visible, onClose, photoUri, identifyResult
                     </Pressable>
 
                     {/* ── 12. Save Spot ──────────────────────────────────── */}
-                    <TouchableOpacity onPress={handleSave} style={{ backgroundColor: colors.primary, padding: 16, borderRadius: 14 }}>
-                      <Text style={{ color: colors.primaryText, textAlign: 'center', fontWeight: 'bold', fontSize: 16 }}>Save Spot</Text>
-                    </TouchableOpacity>
+                    <AnimatedReanimated.View style={saveButtonAnimStyle}>
+                      <TouchableOpacity
+                        onPress={handleSave}
+                        onPressIn={() => { saveButtonScale.value = withSpring(0.96, { damping: 10, stiffness: 300 }) }}
+                        onPressOut={() => { saveButtonScale.value = withSpring(1.0, { damping: 10, stiffness: 300 }) }}
+                        style={{ backgroundColor: colors.primary, padding: 16, borderRadius: 14 }}
+                      >
+                        <Text style={{ color: colors.primaryText, textAlign: 'center', fontWeight: 'bold', fontSize: 16 }}>Save Spot</Text>
+                      </TouchableOpacity>
+                    </AnimatedReanimated.View>
                   </>
                 ) : null}
               </ScrollView>

@@ -1,6 +1,7 @@
 import { supabase } from '../../lib/supabase'
 import type { SpottedCar, RarityLevel, XpMultipliers } from '../../types'
 import { createCarKey } from '../../utils/carKey'
+import { invalidateSignedUrlCache } from './storage'
 
 export type SpottingRow = Record<string, any>
 
@@ -14,6 +15,7 @@ export type Spotting = {
   condition: string | null
   is_modified: boolean | null
   location_name: string | null
+  notes: string | null
   total_xp: number | null
   spotted_at: string | null
   trim: string | null
@@ -69,6 +71,7 @@ export function mapSpottingRowToSpottedCar(row: SpottingRow): SpottedCar {
     },
     source: row.source ?? undefined,
     location: row.location_name ?? row.location ?? undefined,
+    notes: row.notes ?? undefined,
     trim: trim || undefined,
     colour: colour || undefined,
     uncertain: row.uncertain ?? undefined,
@@ -134,7 +137,7 @@ export type InsertSpottingInput = {
   year: number
   colour: string
   rarity: RarityLevel
-  location?: string | null
+  location_name?: string | null
   notes?: string | null
   uncertain?: boolean
   horsepower?: number | null
@@ -201,4 +204,41 @@ export async function updateSpotting(
     .single()
   if (error || !data) return null
   return data as SpottingRow
+}
+
+/**
+ * Fully delete a spotting:
+ * 1. Fetch all spotting_photos rows for this spotting.
+ * 2. Batch-remove their Storage objects and invalidate the signed URL cache.
+ * 3. Delete all spotting_photos rows.
+ * 4. Delete the spottings row itself.
+ * Throws on any Supabase error so the caller can surface it to the user.
+ */
+export async function deleteSpotting(spottingId: string, userId: string): Promise<void> {
+  const { data: photoRows, error: fetchErr } = await supabase
+    .from('spotting_photos')
+    .select('storage_path')
+    .eq('spotting_id', spottingId)
+    .eq('user_id', userId)
+
+  if (fetchErr) throw new Error(fetchErr.message)
+
+  const paths = (photoRows ?? [])
+    .map((r) => r.storage_path as string)
+    .filter(Boolean)
+
+  if (paths.length > 0) {
+    await supabase.storage.from('spotting-photos').remove(paths)
+    paths.forEach((p) => invalidateSignedUrlCache(p))
+  }
+
+  await supabase.from('spotting_photos').delete().eq('spotting_id', spottingId)
+
+  const { error: delErr } = await supabase
+    .from('spottings')
+    .delete()
+    .eq('id', spottingId)
+    .eq('user_id', userId)
+
+  if (delErr) throw new Error(delErr.message)
 }

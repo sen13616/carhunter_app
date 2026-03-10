@@ -20,7 +20,8 @@
       "infoPlist": {
         "NSCameraUsageDescription": "Allow camera access to identify cars",
         "NSPhotoLibraryUsageDescription": "Allow access to your photos to upload car images",
-        "NSPhotoLibraryAddUsageDescription": "Allow saving photos of identified cars"
+        "NSPhotoLibraryAddUsageDescription": "Allow saving photos of identified cars",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
